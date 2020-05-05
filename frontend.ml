@@ -23,6 +23,13 @@ and modifier =
   | Plus
 ;;
 
+let except e =
+ let rec except_e = function
+     [] -> []
+   | elem::l -> if e = elem then except_e l else elem::except_e l
+ in except_e
+;;
+
 let sys_error code arg =
   if arg = "" then
     Sys_error (Unix.error_message code)
@@ -199,9 +206,11 @@ let rec remove_dups l =
   | [] -> []
 ;;
 
+let current = ref 0
+let argv = ref [||]
 
 let arg n =
-  if n < Array.length Sys.argv then Sys.argv.(n) else raise Not_found
+  if n < Array.length !argv then (!argv).(n) else raise Not_found
 ;;
 
 
@@ -641,7 +650,7 @@ let process_ppx_spec predicates packages ppx_opts =
        ppx_packages)
 
 let parse_args
-      ?(current = Arg.current) ?(args = Sys.argv) 
+      ?(current = current) ?(args = !argv) 
       ?(align = true)
       spec anon usage =
   try
@@ -663,6 +672,56 @@ let parse_args
 
 
 (**************** OCAMLC/OCAMLMKTOP/OCAMLOPT subcommands ****************)
+
+let ppx_invoke1 cmd ~root f =
+  let open Filename in
+  let outf = temp_file root "" in
+  (Printf.sprintf "%s %s %s" cmd f outf, outf)
+;;
+
+let ppx_invoke cmds f =
+  let open Filename in
+  let base = basename f in
+  if not (check_suffix base ".mli" || check_suffix base ".ml") then
+    failwith "File must end with either .ml or .mli" ;
+  let (root, suff) =
+    if check_suffix base ".mli" then
+      (chop_suffix base ".mli", ".mli")
+        else (chop_suffix base ".ml", ".ml") in
+
+  let extra_arg = if suff = ".mli" then "-intf" else "-impl" in
+  let outf0 = temp_file root "" in
+  let cmd0 = Printf.sprintf "ocamlfind camlp5/papr_official.exe -binary-output %s %s %s" extra_arg f outf0 in
+  let (outf, cmdsacc, tmpfiles) =
+    List.fold_left (fun (inf, cmdsacc, tmpfiles) cmd ->
+        let (cmd, outf) = ppx_invoke1 ~root cmd inf in
+        (outf, ((cmd,outf)::cmdsacc), outf::tmpfiles))
+      (outf0, [(cmd0, outf0)], [outf0]) cmds in
+  let cmds = List.rev cmdsacc in
+  (suff, cmds, outf, tmpfiles)
+;;
+
+let check_rc msg cmd =
+  Printf.fprintf stderr "%s: %s\n%!" msg cmd ;
+  match Unix.system cmd with
+    Unix.WEXITED 0 -> ()
+  | Unix.WEXITED n ->
+    Printf.fprintf stderr "%s: process exited with status %d\n%!" msg n ;
+        failwith (Printf.sprintf "%s: failed" msg)
+  | _ -> failwith (Printf.sprintf "%s: failed with unexpected status" msg)
+;;
+
+let ppx_execute (suff, cmds, outf, tmpfiles) =
+  cmds |> List.iter (fun (cmd, outf) ->
+      check_rc "ppx_execute" cmd ;
+    ) ;
+  let extra_arg = if suff = ".mli" then "-intf" else "-impl" in
+  check_rc "format output file"
+    (Printf.sprintf "ocamlfind camlp5/papr_official.exe -binary-input %s %s" extra_arg outf)
+(*
+  check_rc "unlink tmpfiles" (Printf.sprintf "rm -f %s" (String.concat " " tmpfiles))
+*)
+;;
 
 type pass_file_t =
     Pass of string
@@ -724,7 +783,7 @@ let preprocess () =
         ] in
 
   let (current,args) =
-      (Arg.current, Sys.argv) in
+      (current, !argv) in
 
   parse_args
     ~current
@@ -822,10 +881,17 @@ let preprocess () =
   if pp_command <> [] && ppx_commands <> [] then
     prerr_endline("ocamlfind2: [ERROR] both pp and ppx commands present (cannot preprocess)") ;
 
-  let pp_command = pp_command@ pass_files' in
   if pp_command <> [] then
+    let pp_command = pp_command@ pass_files' in
     run_command !verbose (List.hd pp_command) (List.tl pp_command)
-  else assert false
+  else begin
+    let ppx_commands = except "-ppx" ppx_commands in
+    List.iter (fun f ->
+        let (suff, cmds, outf, tmpfiles) = ppx_invoke ppx_commands f in
+        ppx_execute (suff, cmds, outf, tmpfiles)
+      ) pass_files' ;
+
+  end
 ;;
 
 (************************************************************************)
@@ -1423,17 +1489,17 @@ let prepare_remove_package () =
 ;;
 
 let passthru () =
-  run_command Normal "ocamlfind" (List.tl (Array.to_list Sys.argv))
+  run_command Normal "ocamlfind" (List.tl (Array.to_list !argv))
 ;;
 
 
 let rec select_mode () =
-  let k = !Arg.current in
+  let k = !current in
   let m_string = try arg (k+1) with Not_found -> raise Usage in
   let m =
     match m_string with
-      ("reinstall-if-diff")               -> incr Arg.current; M_reinstall_if_diff
-    | ("preprocess")             -> incr Arg.current; M_preprocess
+      ("reinstall-if-diff")               -> incr current; M_reinstall_if_diff
+    | ("preprocess")             -> incr current; M_preprocess
     | _ -> M_passthru
   in
 
@@ -1441,7 +1507,8 @@ let rec select_mode () =
 ;;
 
 
-let main() =
+let _main av curr () =
+  argv := av ; current := curr ;
   try
     let m = select_mode() in
     match m with
@@ -1466,17 +1533,5 @@ let main() =
       exit 2
 ;;
 
-
-try
-  Sys.catch_break true;
-  main()
-with
-  any ->
-    prerr_endline ("Uncaught exception: " ^ Printexc.to_string any);
-    let raise_again =
-      try ignore(Sys.getenv "OCAMLFIND_DEBUG"); true
-      with Not_found -> false
-    in
-    if raise_again then raise any;
-    exit 3
-;;
+let main ?(argv = Sys.argv) ?(current = !Arg.current) () =
+  _main argv current () ;;
