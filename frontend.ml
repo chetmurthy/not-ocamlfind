@@ -691,7 +691,7 @@ let ppx_invoke cmds f =
 
   let extra_arg = if suff = ".mli" then "-intf" else "-impl" in
   let outf0 = temp_file root "" in
-  let cmd0 = Printf.sprintf "ocamlfind camlp5/papr_official.exe -binary-output %s %s %s" extra_arg f outf0 in
+  let cmd0 = Printf.sprintf "ocamlfind ocamlfind2/papr_official.exe -binary-output %s %s %s" extra_arg f outf0 in
   let (outf, cmdsacc, tmpfiles) =
     List.fold_left (fun (inf, cmdsacc, tmpfiles) cmd ->
         let (cmd, outf) = ppx_invoke1 ~root cmd inf in
@@ -717,7 +717,7 @@ let ppx_execute (suff, cmds, outf, tmpfiles) =
     ) ;
   let extra_arg = if suff = ".mli" then "-intf" else "-impl" in
   check_rc "format output file"
-    (Printf.sprintf "ocamlfind camlp5/papr_official.exe -binary-input %s %s" extra_arg outf)
+    (Printf.sprintf "ocamlfind ocamlfind2/papr_official.exe -binary-input %s %s" extra_arg outf)
 (*
   check_rc "unlink tmpfiles" (Printf.sprintf "rm -f %s" (String.concat " " tmpfiles))
 *)
