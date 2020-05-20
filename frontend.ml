@@ -1128,6 +1128,7 @@ let prepare_reinstall_if_diff_package () =
   let dll_files = ref [] in
   let nodll_files = ref [] in
   let which = ref Auto in
+  let debug = ref false in
 
   let keywords =
     [ "-destdir", (Arg.String (fun s -> destdir := s)),
@@ -1144,10 +1145,12 @@ let prepare_reinstall_if_diff_package () =
            "              The following files are DLLs";
       "-nodll", Arg.Unit (fun () -> which := No_dll),
              "            The following files are not DLLs";
+      "-debug", Arg.Set debug,
+      "     Enable massive debug-logging";
     ] in
   let errmsg = "usage: ocamlfind reinstall-if-diff [options] <package_name> <file> ..." in
 
-  let install_args = List.tl (remaining_args ()) in
+  let install_args = except "-debug" (List.tl (remaining_args ())) in
   parse_args
         keywords
 	(fun s ->
@@ -1165,9 +1168,9 @@ let prepare_reinstall_if_diff_package () =
   if not (Fl_split.is_valid_package_name !pkgname) then
     failwith "Package names must not contain the character '.'!";
 
-  Fmt.(pf stderr "removal_mods: START\n%!");
+  if !debug then Fmt.(pf stderr "removal_mods: START\n%!");
   let removal_mods = prepare_remove_package ~destdir:!destdir ~metadir:!metadir ~ldconf:!ldconf ~pkgname:!pkgname in
-  Fmt.(pf stderr "removal_mods:\n%a\n%!"
+  if !debug then Fmt.(pf stderr "removal_mods:\n%a\n%!"
          Sexplib.Sexp.pp_hum (sexp_of_t_pair_list removal_mods)
       ) ;
 
@@ -1330,7 +1333,7 @@ let prepare_reinstall_if_diff_package () =
     write_meta false pkgdir "META";
 
   let remove_args = ["-destdir"; !destdir; !pkgname] in
-  (List.rev !install_mods, install_args, removal_mods, remove_args)
+  (!debug, List.rev !install_mods, install_args, removal_mods, remove_args)
 ;;
 
 let same_action (ifname, iact) (rfname, ract) =
@@ -1367,8 +1370,8 @@ let is_same (install_mods, removal_mods) =
 ;;
 
 let reinstall_if_diff () =
-  let (install_mods, install_args, removal_mods, remove_args) = prepare_reinstall_if_diff_package() in
-  Fmt.(pf stderr "reinstall_if_diff\ninstall_mods:\n%a\ninstall_args: [%a]\nremoval_mods:\n%a\nremove_args: [%a]\n%!"
+  let (debug, install_mods, install_args, removal_mods, remove_args) = prepare_reinstall_if_diff_package() in
+  if debug then Fmt.(pf stderr "reinstall_if_diff\ninstall_mods:\n%a\ninstall_args: [%a]\nremoval_mods:\n%a\nremove_args: [%a]\n%!"
          Sexplib.Sexp.pp_hum (sexp_of_t_pair_list install_mods)
          (list ~sep:(const string " ") string) install_args
          Sexplib.Sexp.pp_hum (sexp_of_t_pair_list removal_mods)
