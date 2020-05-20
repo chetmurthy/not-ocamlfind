@@ -213,6 +213,13 @@ let arg n =
   if n < Array.length !argv then (!argv).(n) else raise Not_found
 ;;
 
+let rec nth0 = function
+        (0,l) -> l
+      | (n, h::t) -> nth0 (n-1,t)
+      | _ -> assert false 
+;;
+
+let remaining_args () = nth0 (!current, Array.to_list !argv) ;;
 
 let escape_if_needed s =
   if String.contains s ' ' then "\"" ^ String.escaped s ^ "\"" else s
@@ -232,24 +239,22 @@ let use_package prefix pkgnames =
   print_endline (prefix ^ String.concat " " pdirs)
 ;;
 
+let file_contents filename =
+  let ic = open_in filename in
+  let inlen = in_channel_length ic in
+  let s = really_input_string ic inlen in
+  close_in ic ;
+  s
+;;
+
+let parse_ldconf contents =
+  Str.(split (regexp "\n+") contents)
+;;
 
 let read_ldconf filename =
-  let lines = ref [] in
-  let f = open_in filename in
-  try
-    while true do
-      let line = input_line f in
-      if line <> "" then
-	lines := line :: !lines
-    done;
-    assert false
-  with
-      End_of_file ->
-	close_in f;
-	List.rev !lines
-    | other ->
-	close_in f;
-	raise other
+  let contents = file_contents filename in
+  let lines = parse_ldconf contents in
+  lines
 ;;
 
 
@@ -258,29 +263,8 @@ let format_ldconf lines new_lines =
   List.iter
     (fun line -> Buffer.add_string b (line ^ "\n"))
     (lines @ new_lines) ;
-  Buffer.to_bytes b
+  Buffer.contents b
 ;;
-
-
-let write_ldconf filename lines new_lines =
-  let f = open_out filename in
-  try
-    List.iter
-      (fun line -> output_string f (line ^ "\n"))
-      (lines @ new_lines);
-    close_out f;
-    prerr_endline("Updated " ^ filename);
-  with
-      Sys_error e ->
-	prerr_endline ("ocamlfind: [WARNING] Cannot write " ^ filename);
-	prerr_endline ("Reason: " ^ e);
-	prerr_endline ("This file contains the directories with DLLs.");
-	if new_lines <> [] then begin
-	  prerr_endline ("It is recommended to add the following line(s) to this file:");
-	  List.iter prerr_endline new_lines
-	end
-;;
-
 
 let is_dll p =
   let sfx = Findlib_config.dll_suffix in
@@ -896,77 +880,10 @@ let preprocess () =
 
 (************************************************************************)
 
-
-let copy_file ?(rename = (fun name -> name)) ?(append = "") src dstdir =
-  (* A system-independent function to copy the file src to dstdir *)
-  let outname = rename (Filename.basename src) in
-  let ch_in = open_in_bin src in
-  (* Determine the permissions of the file: the permissions of the
-   * user bits are extended to all groups (user, group, world bits),
-   * and the umask is applied to the result.
-   * Furthermore, the mtime of the file is preserved. This seems to be
-   * important for BSD-style archives (otherwise the system is confused
-   * and wants that ranlib is run again). For simplicity, the atime is
-   * set to the mtime, too.
-   *)
-  let s = Unix.stat src in
-  let perm = s.Unix.st_perm in
-  let user_perm = (perm land 0o700) lsr 6 in
-  let perm' = user_perm lor (user_perm lsl 3) lor (user_perm lsl 6) in
-  try
-    let outpath = Filename.concat dstdir outname in
-    if Sys.file_exists outpath then
-      prerr_endline ("ocamlfind: [WARNING] Overwriting file " ^ outpath);
-    let ch_out = open_out_gen
-		   [Open_wronly; Open_creat; Open_trunc; Open_binary]
-		   perm'
-		   outpath in
-    try
-      let buflen = 4096 in
-      let buf = Bytes.create buflen in   (* FIXME: Bytes.create *)
-      let pos = ref 0 in
-      let len = ref (input ch_in buf 0 buflen) in
-      while !len > 0 do
-	output ch_out buf !pos !len;
-	len := input ch_in buf !pos buflen;
-      done;
-      output_string ch_out append;
-      close_out ch_out;
-      close_in ch_in;
-      Unix.utimes outpath s.Unix.st_mtime s.Unix.st_mtime;
-
-      prerr_endline("Installed " ^ outpath);
-    with
-	exc -> close_out ch_out; raise exc
-  with
-      exc -> close_in ch_in; raise exc
-;;
-
-
-let install_create_directory pkgname dstdir =
-  try
-    Unix.mkdir dstdir 0o777
-  with
-      Unix.Unix_error(Unix.EEXIST,_,_) ->
-	()
-    | Unix.Unix_error(Unix.ENOENT,_,_)
-    | Unix.Unix_error(Unix.ENOTDIR,_,_) ->
-	failwith ("Bad configuration: Cannot mkdir " ^ dstdir ^ " because a path component does not exist or is not a directory")
-    | Unix.Unix_error(e,_,_) ->
-	failwith ("Cannot mkdir " ^ dstdir ^ ": " ^
-		  Unix.error_message e)
-;;
-
-
-let create_owner_file pkg file =
+let format_owner_file pkg file =
   let outpath = file ^ ".owner" in
-  let f = open_out outpath in
-  try
-    output_string f (pkg ^ "\n");
-    close_out f;
-    prerr_endline("Installed " ^ outpath);
-  with
-      exc -> close_out f; raise exc
+  let contents = (pkg ^ "\n") in
+  (outpath, contents)
 ;;
 
 let trim_cr s =
@@ -1130,8 +1047,78 @@ let char_lowercase_ascii c =
 let string_lowercase_ascii =
   String.map char_lowercase_ascii
 
+open Fsmod
 
-let reinstall_if_diff_package () =
+let prepare_remove_package ~destdir ~metadir ~ldconf ~pkgname =
+
+  let meta_dot_pkg = "META." ^ pkgname in
+  let has_metadir = metadir <> "" in
+  let pkgdir = Filename.concat destdir pkgname in
+  let dlldir = Filename.concat destdir Findlib_config.libexec_name in
+  let have_libexec = Sys.file_exists dlldir in
+
+  (* First remove the META file. If it is already gone, assume that a
+     parallel running removal removed it already.
+   *)
+
+  let mods = ref [] in
+
+  let push_rm f =
+    if Sys.file_exists f then
+      let digest = Digest.(f |> file |> to_hex) in
+      mods := (f, FM_delete { name = f; checksum = digest }) :: !mods in
+
+  let push_update f bytes =
+    if Sys.file_exists f then
+      let digest = Digest.(f |> file |> to_hex) in
+      mods := (f, FM_update ({ name = f; checksum = digest}, bytes)) :: !mods in
+
+  if has_metadir then push_rm (Filename.concat metadir meta_dot_pkg)
+  else push_rm (Filename.concat pkgdir "META") ;
+
+  (* Remove files from libexec directory: *)
+  if have_libexec then begin
+    let dll_files = find_owned_files pkgname dlldir in
+    List.iter
+      (fun file ->
+         let absfile = Filename.concat dlldir file in
+         push_rm absfile
+      )
+      dll_files
+  end;
+
+    (* Remove the files from the package directory: *)
+    if Sys.file_exists pkgdir then begin
+      let files = Sys.readdir pkgdir in
+      Array.iter (fun f ->
+          if f <> "META" then
+          push_rm (Filename.concat pkgdir f)) files;
+    end
+    else
+      prerr_endline("ocamlfind: [WARNING] No such directory: " ^ pkgdir);
+
+
+  (* Modify ld.conf *)
+  if ldconf <> "ignore" && Sys.file_exists ldconf then
+    begin
+      let lines = read_ldconf ldconf in
+      let d = Fl_split.norm_dir pkgdir in
+      let exists = List.exists (fun p -> Fl_split.norm_dir p = d) lines in
+      if exists then begin
+        let lines' = List.filter (fun p -> Fl_split.norm_dir p <> d) lines in
+        push_update ldconf (format_ldconf lines' [])
+      end
+    end;
+
+  (* Check if there is a postremove script: *)
+  let postremove = Filename.concat destdir "postremove" in
+  if Sys.file_exists postremove then
+    failwith "cannot reinstall-if-diff a package with a postremove script" ;
+
+  List.rev !mods
+;;
+
+let prepare_reinstall_if_diff_package () =
   let destdir = ref (default_location()) in
   let metadir = ref (meta_directory()) in
   let ldconf  = ref (ocaml_ldconf()) in
@@ -1141,9 +1128,6 @@ let reinstall_if_diff_package () =
   let dll_files = ref [] in
   let nodll_files = ref [] in
   let which = ref Auto in
-  let add_files = ref false in
-  let optional = ref false in
-  let patches = ref [] in
 
   let keywords =
     [ "-destdir", (Arg.String (fun s -> destdir := s)),
@@ -1160,26 +1144,17 @@ let reinstall_if_diff_package () =
            "              The following files are DLLs";
       "-nodll", Arg.Unit (fun () -> which := No_dll),
              "            The following files are not DLLs";
-      "-add", Arg.Unit (fun () -> add_files := true),
-           "              Add files to the package";
-      "-optional", Arg.Set optional,
-                "         The following files are optional";
-      "-patch-version", Arg.String (fun s -> patches := !patches @ [`Version s]),
-                     "<v> Set the package version to <v>";
-      "-patch-rmpkg", Arg.String (fun s -> patches := !patches @ [`Rmpkg s]),
-                   "<n>   Remove the subpackage <n>";
-      "-patch-archives", Arg.Unit (fun () -> patches := !patches @ [`Archives]),
-                      "   Remove non-existing archives";
     ] in
-  let errmsg = "usage: ocamlfind install [options] <package_name> <file> ..." in
+  let errmsg = "usage: ocamlfind reinstall-if-diff [options] <package_name> <file> ..." in
 
+  let install_args = List.tl (remaining_args ()) in
   parse_args
         keywords
 	(fun s ->
 	   if !pkgname = ""
 	   then pkgname := s
 	   else
-	     if not !optional || Sys.file_exists s then
+	     if Sys.file_exists s then
 	       match !which with
 		   Auto -> auto_files := s :: !auto_files
 		 | Dll  -> dll_files := s :: !dll_files
@@ -1189,6 +1164,39 @@ let reinstall_if_diff_package () =
   if !pkgname = "" then (Arg.usage keywords errmsg; exit 1);
   if not (Fl_split.is_valid_package_name !pkgname) then
     failwith "Package names must not contain the character '.'!";
+
+  Fmt.(pf stderr "removal_mods: START\n%!");
+  let removal_mods = prepare_remove_package ~destdir:!destdir ~metadir:!metadir ~ldconf:!ldconf ~pkgname:!pkgname in
+  Fmt.(pf stderr "removal_mods:\n%a\n%!"
+         Sexplib.Sexp.pp_hum (sexp_of_t_pair_list removal_mods)
+      ) ;
+
+  (* if this file is listed in the removal-mods, then we pretend it doesn't exist; 
+     otherwise we pass it along to Sys.file_exists *)
+  let file_exists f =
+    if List.mem_assoc f removal_mods then false
+    else Sys.file_exists f in
+
+  let read_file f =
+    match List.assoc f removal_mods with
+      FM_update (_, contents) -> contents
+    | _ -> failwith "Internal error: can only read_file on a file that we're going to update"
+    | exception Not_found ->
+      failwith "Internal error: can only read_file on a file that we're going to update" in
+
+  let install_mods = ref [] in
+  let push_install ~srcf ~dstf =
+    let digest = Digest.(srcf |> file |> to_hex) in
+    install_mods := (dstf, FM_install { name = srcf; checksum = digest }) :: !install_mods in
+
+  let push_create ~dstf ~contents =
+    let digest = Digest.(contents |> string |> to_hex) in
+    install_mods := (dstf, FM_create ({ name = dstf; checksum = digest }, contents)) :: !install_mods in
+
+  let push_update f b =
+    let digest = Digest.(f |> file |> to_hex) in
+    install_mods := (f, FM_update ({ name = f; checksum = digest}, b)) :: !install_mods in
+
 
   let pkgdir = Filename.concat !destdir !pkgname in
   let dlldir = Filename.concat !destdir Findlib_config.libexec_name in
@@ -1224,34 +1232,19 @@ let reinstall_if_diff_package () =
 	nodll_list
     with
       | Not_found ->
-	  if !add_files then (
-	    let m1 = Filename.concat !metadir meta_dot_pkg in
-	    let m2 = Filename.concat pkgdir "META" in
-	    if Sys.file_exists m1 then
-	      m1
-	    else
-	      if Sys.file_exists m2 then
-		m2
-	      else
-		failwith "Cannot find META in package dir"
-	  )
-	  else
 	    failwith "The META file is missing" in
 
-  let meta_pkg = meta_pkg meta_name in
+  (* Check for frequent reasons why installation can go wrong *)
+  if file_exists (Filename.concat !metadir meta_dot_pkg) then
+    failwith ("Package " ^ !pkgname ^ " is already installed\n - (file " ^ Filename.concat !metadir meta_dot_pkg ^ " already exists)");
 
-  if not !add_files then (
-    (* Check for frequent reasons why installation can go wrong *)
-    if Sys.file_exists (Filename.concat !metadir meta_dot_pkg) then
-      failwith ("Package " ^ !pkgname ^ " is already installed\n - (file " ^ Filename.concat !metadir meta_dot_pkg ^ " already exists)");
+  if file_exists (Filename.concat pkgdir "META") then
+    failwith ("Package " ^ !pkgname ^ " is already installed\n - (file " ^ pkgdir ^ "/META already exists)");
 
-    if Sys.file_exists (Filename.concat pkgdir "META") then
-      failwith ("Package " ^ !pkgname ^ " is already installed\n - (file " ^ pkgdir ^ "/META already exists)");
-  );
   List.iter
     (fun f ->
        let f' = Filename.concat pkgdir f in
-       if Sys.file_exists f' then
+       if file_exists f' then
 	 failwith ("Conflict with file: " ^ f'))
     pkgdir_eff_list;
 
@@ -1259,28 +1252,22 @@ let reinstall_if_diff_package () =
     List.iter
       (fun dll ->
 	 let b = Filename.basename dll in
-	 if Sys.file_exists (Filename.concat dlldir b) then
+	 if file_exists (Filename.concat dlldir b) then
 	   failwith ("Conflict with another package: Library " ^ b ^
 		     " is already installed");
       )
       dll_list
   end;
 
-  (* Create the package directory: *)
-  install_create_directory !pkgname pkgdir;
-
   (* Now copy the files into the package directory (except META): *)
   List.iter
-    (fun p ->
+    (fun srcf ->
        try
-	 copy_file
-	   ~rename: (fun f ->
-			 if f = "META" || f = meta_dot_pkg then 
-			   raise Skip_file
-			 else
-			   f)
-	   p
-	   pkgdir
+         let dstf = Filename.concat pkgdir srcf in
+	 if srcf = "META" || srcf = meta_dot_pkg then raise Skip_file ;
+         if srcf = "postremove" then failwith "cannot reinstall-if-diff a package with a postremove script" ;
+         if srcf = "postinstall" then failwith "cannot reinstall-if-diff a package with a postinstall script" ;
+         push_install ~srcf ~dstf
        with
 	   Skip_file -> ()
     )
@@ -1289,10 +1276,12 @@ let reinstall_if_diff_package () =
   (* Copy the DLLs into the libexec directory if necessary *)
   if have_libexec then begin
     List.iter
-      (fun p ->
-	 copy_file p dlldir;
-	 create_owner_file !pkgname
-	   (Filename.concat dlldir (Filename.basename p))
+      (fun srcf ->
+         let dstf = Filename.concat pkgdir srcf in
+         push_install ~srcf ~dstf ;
+         let (owner_file, contents) = format_owner_file !pkgname
+	     (Filename.concat dlldir (Filename.basename srcf)) in
+         push_create ~dstf:owner_file ~contents
       )
       dll_list
   end;
@@ -1301,8 +1290,9 @@ let reinstall_if_diff_package () =
   if dll_list <> [] && !ldconf <> "ignore" && not have_libexec then begin
     if Sys.file_exists !ldconf then
       begin
-	let lines = read_ldconf !ldconf in
-	write_ldconf !ldconf lines [ pkgdir ]
+        let contents = read_file !ldconf in
+	let lines = parse_ldconf contents in
+	push_update !ldconf (format_ldconf lines [ pkgdir ])
       end
     else
       prerr_endline("ocamlfind: [WARNING] You have installed DLLs but there is no ld.conf")
@@ -1328,164 +1318,66 @@ let reinstall_if_diff_package () =
 
   (* Finally, write the META file: *)
   let write_meta append_directory dir name =
-    (* If there are patches, write the patched META, else copy the file: *)
-    if !patches = [] then
-      copy_file 
-	~rename:(fun _ -> name)
-        ?append:(if append_directory then
-		   Some("\ndirectory=\"" ^ pkgdir ^ 
-			  "\" # auto-added by ocamlfind\n")
-		 else
-		   None)
-	meta_name
-	dir
-    else (
-      let p = Filename.concat dir name in
-      let patched_pkg = patch_pkg pkgdir meta_pkg !patches in
-      let out = open_out p in
-        Fl_metascanner.print out patched_pkg;
-      if append_directory then
-	output_string out ("\ndirectory=\"" ^ pkgdir ^ 
-			     "\" # auto-added by ocamlfind\n");
-      close_out out;
-      prerr_endline ("Installed " ^ p);
-    )
+    let contents = file_contents meta_name in
+    let contents = if append_directory then
+        contents ^ "\ndirectory=\"" ^ pkgdir ^ "\" # auto-added by ocamlfind\n"
+      else contents in
+    push_create ~dstf:(Filename.concat dir name) ~contents
   in
-  if not !add_files then (
-    if has_metadir then
-      write_meta true !metadir meta_dot_pkg
-    else
-      write_meta false pkgdir "META";
-  );
+  if has_metadir then
+    write_meta true !metadir meta_dot_pkg
+  else
+    write_meta false pkgdir "META";
 
-  (* Check if there is a postinstall script: *)
-  let postinstall = Filename.concat !destdir "postinstall" in
-  if Sys.file_exists postinstall then
-    run_command Verbose postinstall [ slashify !destdir; !pkgname ]
+  let remove_args = ["-destdir"; !destdir; !pkgname] in
+  (List.rev !install_mods, install_args, removal_mods, remove_args)
 ;;
 
-
-let reserved_names = [ Findlib_config.libexec_name; "postinstall"; "postremove" ];;
-
-type fsmod_t =
-    MOD_rm of string
-  | MOD_rmdir of string
-  | MOD_create of string * bytes
-  | MOD_update of string * bytes
-  | MOD_exec of string * string list
+let same_action (ifname, iact) (rfname, ract) =
+  if ifname <> rfname then (
+    Fmt.(pf stderr "Files %s, %s at same position in sorted list of actions"
+           ifname rfname) ;
+    false
+  )
+  else
+  match iact, ract with
+    FM_install {name=s2; checksum=sum2}, FM_delete { name=s1; checksum=sum1}
+    when sum1=sum2 -> true
+  | FM_create ({name=s2; checksum=sum2}, _), FM_delete { name=s1; checksum=sum1}
+    when s1=s2 && sum1=sum2 -> true
+  | _ ->
+    Fmt.(pf stderr "File %s has incompatible {install, remove} actions: (%a,%, %a)"
+           ifname pp iact pp ract) ;
+    false
 ;;
 
-let prepare_remove_package () =
-  let destdir = ref (default_location()) in
-  let destdir_set = ref false in
-  let metadir = ref (meta_directory()) in
-  let ldconf  = ref (ocaml_ldconf()) in
-  let pkgname = ref "" in
+let is_same (install_mods, removal_mods) =
+  let imap = List.sort Stdlib.compare install_mods in
+  let rmap = List.sort Stdlib.compare removal_mods in
+  let rec rerec = function
+      ((ifname, iact)::it, (rfname, ract)::rt) ->
+      if not (same_action (ifname, iact) (rfname, ract)) then false
+      else rerec (it, rt)
+    | ([], []) -> true
+    | _ ->
+      Fmt.(pf stderr "reinstall-if-diff: remove and install lists have differing lengths") ;
+      false
+  in
+  rerec (imap, rmap)
+;;
 
-  let keywords =
-    [ "-destdir", (Arg.String (fun s -> destdir := s; destdir_set := true)),
-              ("<path>      Set the destination directory (default: " ^
-	       !destdir ^ ")");
-      "-metadir", (Arg.String (fun s -> metadir := s)),
-              ("<path>      Remove the META file from this directory (default: " ^
-	       (if !metadir = "" then "none" else !metadir) ^ ")");
-      "-ldconf", (Arg.String (fun s -> ldconf := s)),
-             ("<path>       Update this ld.conf file (default: " ^ !ldconf ^ ")");
-    ] in
-  let errmsg = "usage: ocamlfind remove [options] <package_name>" in
-
-  parse_args
-        keywords
-	(fun s ->
-	   if !pkgname = ""
-	   then pkgname := s
-	   else raise (Arg.Bad "too many arguments")
-	)
-	errmsg;
-  if !pkgname = "" then (Arg.usage keywords errmsg; exit 1);
-  if List.mem !pkgname reserved_names then
-    failwith ("You are not allowed to remove this thing by ocamlfind!");
-  if not (Fl_split.is_valid_package_name !pkgname) then
-    failwith "Package names must not contain the character '.'!";
-
-  let meta_dot_pkg = "META." ^ !pkgname in
-  let has_metadir = !metadir <> "" in
-  let pkgdir = Filename.concat !destdir !pkgname in
-  let dlldir = Filename.concat !destdir Findlib_config.libexec_name in
-  let have_libexec = Sys.file_exists dlldir in
-
-  (* Warn if there is another package with the same name: *)
-  let other_pkgdir =
-    try Findlib.package_directory !pkgname with No_such_package _ -> "" in
-  if other_pkgdir <> "" && not !destdir_set then begin
-    (* Is pkgdir = other_pkgdir? - We check physical identity: *)
-    try
-      let s_other_pkgdir = Unix.stat other_pkgdir in
-      try
-	let s_pkgdir = Unix.stat pkgdir in
-	if (s_pkgdir.Unix.st_dev <> s_other_pkgdir.Unix.st_dev) ||
-	   (s_pkgdir.Unix.st_ino <> s_other_pkgdir.Unix.st_ino)
-	then
-	  prerr_endline("ocamlfind: [WARNING] You are removing the package from " ^ pkgdir ^ " but the currently visible package is at " ^ other_pkgdir ^ "; you may want to specify the -destdir option");
-      with
-	  Unix.Unix_error(Unix.ENOENT,_,_) ->
-	    prerr_endline("ocamlfind: [WARNING] You are trying to remove the package from " ^ pkgdir ^ " but the currently visible package is at " ^ other_pkgdir ^ "; you may want to specify the -destdir option");
-    with
-	Unix.Unix_error(_,_,_) -> ()    (* ignore, it's only a warning *)
-  end;
-
-  (* First remove the META file. If it is already gone, assume that a
-     parallel running removal removed it already.
-   *)
-
-  let mods = ref [] in
-  let push_rm s = mods := (MOD_rm s) :: !mods in
-  let push_rmdir s = mods := (MOD_rmdir s) :: !mods in
-  let push_update s bytes = mods := (MOD_update (s, bytes)) :: !mods in
-  let push_exec cmd args = mods := (MOD_exec (cmd, args)) :: !mods in
-
-  if has_metadir then push_rm (Filename.concat !metadir meta_dot_pkg)
-  else push_rm (Filename.concat pkgdir "META") ;
-
-  (* Remove files from libexec directory: *)
-  if have_libexec then begin
-    let dll_files = find_owned_files !pkgname dlldir in
-    List.iter
-      (fun file ->
-         let absfile = Filename.concat dlldir file in
-         push_rm absfile
-      )
-      dll_files
-  end;
-
-    (* Remove the files from the package directory: *)
-    if Sys.file_exists pkgdir then begin
-      let files = Sys.readdir pkgdir in
-      Array.iter (fun f -> push_rm (Filename.concat pkgdir f)) files;
-      push_rmdir pkgdir;
-    end
-    else
-      prerr_endline("ocamlfind: [WARNING] No such directory: " ^ pkgdir);
-
-
-  (* Modify ld.conf *)
-  if !ldconf <> "ignore" && Sys.file_exists !ldconf then
-    begin
-      let lines = read_ldconf !ldconf in
-      let d = Fl_split.norm_dir pkgdir in
-      let exists = List.exists (fun p -> Fl_split.norm_dir p = d) lines in
-      if exists then begin
-        let lines' = List.filter (fun p -> Fl_split.norm_dir p <> d) lines in
-        push_update !ldconf (format_ldconf lines' [])
-      end
-    end;
-
-  (* Check if there is a postremove script: *)
-  let postremove = Filename.concat !destdir "postremove" in
-  if Sys.file_exists postremove then
-    push_exec  postremove [ slashify !destdir; !pkgname ] ;
-
-  List.rev !mods
+let reinstall_if_diff () =
+  let (install_mods, install_args, removal_mods, remove_args) = prepare_reinstall_if_diff_package() in
+  Fmt.(pf stderr "reinstall_if_diff\ninstall_mods:\n%a\ninstall_args: [%a]\nremoval_mods:\n%a\nremove_args: [%a]\n%!"
+         Sexplib.Sexp.pp_hum (sexp_of_t_pair_list install_mods)
+         (list ~sep:(const string " ") string) install_args
+         Sexplib.Sexp.pp_hum (sexp_of_t_pair_list removal_mods)
+         (list ~sep:(const string " ") string) remove_args
+      ) ;
+  if not (is_same (install_mods, removal_mods)) then begin
+    run_command Verbose "ocamlfind" ("remove" :: remove_args) ;
+    run_command Verbose "ocamlfind" ("install" :: install_args)
+  end
 ;;
 
 let passthru () =
@@ -1512,7 +1404,7 @@ let _main av curr () =
   try
     let m = select_mode() in
     match m with
-      M_reinstall_if_diff        -> reinstall_if_diff_package()
+      M_reinstall_if_diff        -> reinstall_if_diff()
     | M_preprocess -> preprocess ()
     | M_passthru       -> passthru()
   with
