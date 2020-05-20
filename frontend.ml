@@ -1338,7 +1338,7 @@ let prepare_reinstall_if_diff_package () =
 
 let same_action (ifname, iact) (rfname, ract) =
   if ifname <> rfname then (
-    Fmt.(pf stderr "Files %s, %s at same position in sorted list of actions"
+    Fmt.(pf stderr "Files %s, %s at same position in sorted list of actions\n%!"
            ifname rfname) ;
     false
   )
@@ -1349,7 +1349,7 @@ let same_action (ifname, iact) (rfname, ract) =
   | FM_create ({name=s2; checksum=sum2}, _), FM_delete { name=s1; checksum=sum1}
     when s1=s2 && sum1=sum2 -> true
   | _ ->
-    Fmt.(pf stderr "File %s has incompatible {install, remove} actions: (%a,%, %a)"
+    Fmt.(pf stderr "File %s has incompatible {install, remove} actions: (%a,%, %a)\n%!"
            ifname pp iact pp ract) ;
     false
 ;;
@@ -1363,7 +1363,7 @@ let is_same (install_mods, removal_mods) =
       else rerec (it, rt)
     | ([], []) -> true
     | _ ->
-      Fmt.(pf stderr "reinstall-if-diff: remove and install lists have differing lengths") ;
+      Fmt.(pf stderr "reinstall-if-diff: remove and install lists have differing lengths\n%!") ;
       false
   in
   rerec (imap, rmap)
