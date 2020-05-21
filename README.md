@@ -52,15 +52,8 @@ ocamlfind (branch `export-more-cmis`).  There are two ways of doing
 this:
 
 ## Via opam
-
-You can clone the patched repo, pin it with opam, and build
-`not-ocamlfind` after.
-
 ```
-git clone git@github.com:chetmurthy/ocamlfind.git
-cd ocamlfind
-git checkout export-more-cmis
-opam pin ocamlfind `pwd`
+opam pin ocamlfind  'https://github.com/chetmurthy/ocamlfind.git#export-more-cmis'
 ```
 
 At this point you can build `not-ocamlfind` with:
