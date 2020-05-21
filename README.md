@@ -12,16 +12,24 @@ The command `not-ocamlfind` is a pass-thru to `ocamlfind`, but adds two new comm
 ```
 ocamlfind install pa_ppx_base -destdir $(DESTDIR)/lib META $(TARGET) pa_ppx_base.cmx pa_ppx_base.cmi
 ```
-installs a package `pa_ppx_base`.  Rewrite that to 
+installs a package `pa_ppx_base`, failing if the package is already installed.  Rewrite that to 
 ```
 ocamlfind reinstall-if-diff pa_ppx_base -destdir $(DESTDIR)/lib META $(TARGET) pa_ppx_base.cmx pa_ppx_base.cmi
 ```
-and it check (a) that the package is already-installed, (b) that the files-to-be-installed are identical in names and checksums to the files already-installed, (c) if not does
+and it checks (a) that the package is already-installed, (b) that the files-to-be-installed are identical in names and checksums to the files already-installed, (c) if not does
 ```
 ocamlfind remove pa_ppx_base
 ocamlfind install pa_ppx_base -destdir $(DESTDIR)/lib META $(TARGET) pa_ppx_base.cmx pa_ppx_base.cmi
 ```
 and (d) if they are identical in names and checksums, does *nothing*.
+
+In projects will multiple directories, if each directory locally installs a `findlib` package, then other directories can use those packages; they can also put those packages into their `make depend` dependencies, viz.
+```
+EXTERNAL := $(shell $(OCAMLFIND) query -predicates byte $(PACKAGES))
+$(CMO) $(CMI) $(CMX): $(EXTERNAL)
+```
+
+hence causing rebuilds to occur when other directories have changed.
 
 ### `preprocess`
 
