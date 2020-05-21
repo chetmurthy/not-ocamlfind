@@ -5,7 +5,8 @@ Front-end to ocamlfind to add a few new commands
 # Installation
 
 To install `not-ocamlfind` you need a slightly-patched version of
-ocamlfind.  There are two ways of doing this:
+ocamlfind (branch `export-more-cmis`).  There are two ways of doing
+this:
 
 ## Via opam
 
@@ -23,6 +24,11 @@ At this point you can build `not-ocamlfind` with:
 ```
 make
 make install
+```
+
+or (via opam)
+```
+opam pin .
 ```
 
 ## Via a local copy of `ocamlfind`
