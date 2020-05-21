@@ -69,11 +69,6 @@ make
 make install
 ```
 
-or (via opam)
-```
-opam pin .
-```
-
 ## Via a local copy of `ocamlfind`
 
 Again, clone ocamlfind, build it, and then point `not-ocamlfind` at 
