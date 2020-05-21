@@ -4,9 +4,9 @@ Front-end to ocamlfind to add a few new commands
 
 # Features
 
-### `reinstall-if-diff`
-
 The command `not-ocamlfind` is a pass-thru to `ocamlfind`, but adds two new commands: `preprocess` and `reinstall-if-diff`.
+
+### `reinstall-if-diff`
 
 1. `reinstall-if-diff` does what it says on the label: a regular `ocamlfind install` command like
 ```
