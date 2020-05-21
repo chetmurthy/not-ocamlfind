@@ -675,7 +675,7 @@ let ppx_invoke cmds f =
 
   let extra_arg = if suff = ".mli" then "-intf" else "-impl" in
   let outf0 = temp_file root "" in
-  let cmd0 = Printf.sprintf "ocamlfind ocamlfind2/papr_official.exe -binary-output %s %s %s" extra_arg f outf0 in
+  let cmd0 = Printf.sprintf "ocamlfind not-ocamlfind/papr_official.exe -binary-output %s %s %s" extra_arg f outf0 in
   let (outf, cmdsacc, tmpfiles) =
     List.fold_left (fun (inf, cmdsacc, tmpfiles) cmd ->
         let (cmd, outf) = ppx_invoke1 ~root cmd inf in
@@ -701,7 +701,7 @@ let ppx_execute (suff, cmds, outf, tmpfiles) =
     ) ;
   let extra_arg = if suff = ".mli" then "-intf" else "-impl" in
   check_rc "format output file"
-    (Printf.sprintf "ocamlfind ocamlfind2/papr_official.exe -binary-input %s %s" extra_arg outf)
+    (Printf.sprintf "ocamlfind not-ocamlfind/papr_official.exe -binary-input %s %s" extra_arg outf)
 (*
   check_rc "unlink tmpfiles" (Printf.sprintf "rm -f %s" (String.concat " " tmpfiles))
 *)
@@ -774,7 +774,7 @@ let preprocess () =
     ~args
     arg_spec
     (fun s -> pass_files := !pass_files @ [ Pass s])
-    ("usage: ocamlfind2 preprocess [options] file ...");
+    ("usage: not-ocamlfind preprocess [options] file ...");
 
   (* ---- Start requirements analysis ---- *)
   
@@ -863,7 +863,7 @@ let preprocess () =
   in
 
   if pp_command <> [] && ppx_commands <> [] then
-    prerr_endline("ocamlfind2: [ERROR] both pp and ppx commands present (cannot preprocess)") ;
+    prerr_endline("not-ocamlfind: [ERROR] both pp and ppx commands present (cannot preprocess)") ;
 
   if pp_command <> [] then
     let pp_command = pp_command@ pass_files' in
