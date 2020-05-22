@@ -13,7 +13,8 @@ depends: [
   "ocamlfind" {>= "1.8.0"}
 ]
 build: [
-  [make]
+  ["./configure" "-bindir" bin "-sitelib" lib "-mandir" man "-config" "%{lib}%/findlib.conf" "-no-custom" "-no-topfind" {preinstalled}]
+  [make "all"]
 ]
 install: [make "install"]
 dev-repo: "git+https://github.com/chetmurthy/not-ocamlfind"
