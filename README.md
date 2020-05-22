@@ -8,7 +8,11 @@ The command `not-ocamlfind` is a pass-thru to `ocamlfind`, but adds two new comm
 
 ### `reinstall-if-diff`
 
-1. `reinstall-if-diff` does what it says on the label: a regular `ocamlfind install` command like
+1. `reinstall-if-diff` does what it says on the label: only reinstalls
+   (remove then install) if the file-content of the package has
+   changed.
+
+A regular `ocamlfind install` command like
 ```
 ocamlfind install pa_ppx_base -destdir $(DESTDIR)/lib META $(TARGET) pa_ppx_base.cmx pa_ppx_base.cmi
 ```
