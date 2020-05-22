@@ -1,7 +1,4 @@
 #!/bin/bash
 
-rm -rf local-packages && mkdir local-packages
-(cd local-packages && git clone https://github.com/chetmurthy/ocamlfind.git \
-  && cd ocamlfind \
-  && git checkout export-more-cmis \
+(cd local-packages/ocamlfind \
   && ./configure $* )

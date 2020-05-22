@@ -31,3 +31,4 @@ uninstall:
 
 clean:
 	rm -f *.cm* not-ocamlfind *.exe
+	(cd local-packages/ocamlfind && make clean)
