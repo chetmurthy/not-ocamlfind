@@ -1,3 +1,4 @@
 *.cm*
 not-ocamlfind
 *.exe
+local-packages

@@ -41,44 +41,19 @@ can be coaxed to produce its preprocessed output by adding "-dsource".  But this
 ```
 ocamlfind ocamlc -package ounit2,ppx_deriving.show test_deriving_show.ml
 ```
-Note well that all the options destined only for the compiler, linker, etc, are gone.  Only options required for preprocessing are accepted (`-package`, `-syntax`, `-predicates`, `-ppopt`, `-ppxopt`).
+Note well that all the options destined only for the compiler, linker, etc, are removed (and henced rejected) for `preprocess`.  Only options required for preprocessing are accepted (`-package`, `-syntax`, `-predicates`, `-ppopt`, `-ppxopt`).
 
 This can work for camlp5 also, but that little bit of documentation is TBD.
 
 # Installation
 
 To install `not-ocamlfind` you need a slightly-patched version of
-ocamlfind (branch `export-more-cmis`).  There are two ways of doing
-this:
-
-## Via opam
-```
-opam pin ocamlfind  'https://github.com/chetmurthy/ocamlfind.git#export-more-cmis'
-```
-
-At this point you can build `not-ocamlfind` with:
-```
-make
-make install
-```
-
-## Via a local copy of `ocamlfind`
-
-Again, clone ocamlfind, build it, and then point `not-ocamlfind` at 
-that tree (I assume you'll know how to configure it for your local
-environment).
+ocamlfind (branch `export-more-cmis`).  Until (and unless) this patch
+gets integrated into the ocamlfind distribution, we build a local copy
+with that patch.  So you merely need to:
 
 ```
-git clone git@github.com:chetmurthy/ocamlfind.git
-cd ocamlfind
-git checkout export-more-cmis
-./configure
-make
-```
-
-then look at `./Makefile` and follow instructions to uncomment `INC` and comment `PACKAGES:=`
-and 
-```
+./configure <customary args for ocamlfind's configure>
 make
 make install
 ```

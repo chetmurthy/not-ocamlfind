@@ -2,18 +2,13 @@
 DEBUG=
 OCAMLFIND_BINDIR:=$(shell dirname `which ocamlfind`)
 PACKAGES = str,unix,fmt,sexplib,rresult
-
-#
-# To build with a patched copy of findlib, comment out the next line
-# and uncomment the one after that.  This assumes that your patched
-# copy of findlib is in "../ocamlfind".
-#
-PACKAGES := $(PACKAGES),findlib
-#INC= -I ../ocamlfind/src/findlib findlib.cma
+#PACKAGES := $(PACKAGES),findlib
+INC= -I local-packages/ocamlfind/src/findlib findlib.cma
 
 all: not-ocamlfind papr_official.exe
 
 not-ocamlfind: fsmod.ml frontend.ml main.ml
+	(cd  local-packages/ocamlfind/ && make)
 	ocamlfind ocamlc $(DEBUG) $(INC) -package $(PACKAGES) -linkall -linkpkg fsmod.ml frontend.ml main.ml -o not-ocamlfind
 
 fsmod.ml: fsmod.ORIG.ml
@@ -35,4 +30,4 @@ uninstall:
 	ocamlfind remove not-ocamlfind || true
 
 clean:
-	rm -f *.cm* not-ocamlfind
+	rm -f *.cm* not-ocamlfind *.exe
