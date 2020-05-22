@@ -1,5 +1,5 @@
 opam-version: "2.0"
-version: "0.03"
+version: "0.04"
 synopsis: "A small frontend for ocamlfind that adds a few useful commands"
 maintainer: "Chet Murthy <chetsky@gmail.com>"
 
@@ -11,6 +11,9 @@ homepage: "https://github.com/chetmurthy/not-ocamlfind"
 bug-reports: "Chet Murthy <chetsky@gmail.com>"
 depends: [
   "ocamlfind" {>= "1.8.0"}
+  "fmt" {>= "0.8.8"}
+  "sexplib" {>= "v0.13.0"}
+  "rresult" {>= "0.6.0"}
 ]
 build: [
   ["./configure" "-bindir" bin "-sitelib" lib "-mandir" man "-config" "%{lib}%/findlib.conf" "-no-custom" "-no-topfind" {preinstalled}]
