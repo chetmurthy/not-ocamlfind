@@ -1,8 +1,7 @@
 
 DEBUG=
 OCAMLFIND_BINDIR:=$(shell dirname `which ocamlfind`)
-PACKAGES = str,unix,fmt,sexplib,rresult
-#PACKAGES := $(PACKAGES),findlib
+PACKAGES = str,unix,fmt,sexplib,rresult,ocamlgraph
 INC= -I local-packages/ocamlfind/src/findlib findlib.cma
 
 all: not-ocamlfind papr_official.exe

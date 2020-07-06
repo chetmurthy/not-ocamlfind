@@ -9,7 +9,7 @@ exception Usage;;
 exception Silent_error;;
   
 type mode =
-    M_reinstall_if_diff | M_preprocess | M_passthru
+    M_reinstall_if_diff | M_preprocess | M_package_graph | M_passthru
 ;;
 
 
@@ -721,6 +721,7 @@ let contracted_ocamlmklib_options =
        switch (e.g. -L<path> instead of -L <path>)
      *)
 
+(************************************************************************)
 
 let preprocess () =
 
@@ -876,6 +877,197 @@ let preprocess () =
       ) pass_files' ;
 
   end
+;;
+
+(************************************************************************)
+
+module PackageGraph = struct
+open Graph
+
+module StringVertex = struct
+  type t = string
+  let compare = Stdlib.compare
+  let hash = Hashtbl.hash
+  let equal a b = (a = b)
+  type label = t
+  let create x = x
+  let label x = x
+end
+
+module V = StringVertex
+module G = Imperative.Digraph.ConcreteBidirectional(V)
+
+module DotIn = struct
+  include G
+  module V = G.V
+  module E = G.E
+  let iter_vertex = G.iter_vertex
+  let iter_edges_e = G.iter_edges_e
+  let graph_attributes _ = []
+  let default_vertex_attributes _ = []
+  let vertex_name v = v
+  let vertex_attributes _ = []
+  let get_subgraph _ = None
+
+  let default_edge_attributes _ = []
+  let edge_attributes _ = []
+end
+module GDot = Graph.Graphviz.Dot(DotIn)
+module DomG = Dominator.Make_graph(G)
+
+let to_dot ~dominator_from oc edges =
+  let g = G.create () in
+  List.iter (fun (s, dl) ->
+    List.iter (fun d -> G.add_edge g s d) dl) edges ;
+  let g = match dominator_from with
+    Some v -> DomG.(compute_dom_graph g (compute_all g v).dom_tree)
+  | None -> g in
+
+  GDot.output_graph oc g ; flush oc
+
+end
+
+let size_of_package predicates p =
+  match Findlib.package_directory p, Findlib.package_property predicates p "archive" with
+    (dir, archives) ->
+      let archives = Str.(split (regexp " +") archives) in
+      let archives = List.map (fun a -> Printf.sprintf "%s/%s" dir a) archives in
+      List.fold_left (fun acc f ->
+        acc + Unix.(stat f).st_size) 0 archives
+  | exception Not_found ->
+    0
+
+let package_graph () =
+
+  let packages = ref [] in
+  let predicates = ref [] in
+  let verbose = ref Normal in
+
+  let syntax_preds = ref [] in
+
+  let add_pkg =
+    Arg.String (fun s -> packages := !packages @ (Fl_split.in_words s)) in
+  let add_pred =
+    Arg.String (fun s -> predicates := !predicates @ (Fl_split.in_words s)) in
+  let add_syntax_pred =
+    Arg.String (fun s -> syntax_preds := !syntax_preds @ (Fl_split.in_words s)) in
+  let ignore_error = ref false in
+  let dominator_from = ref "" in
+  let xdot = ref false in
+
+  let arg_spec =
+    [
+          "-package", add_pkg,
+            "<name>   Refer to package when compiling";
+          "-predicates", add_pred,
+            "<p>   Add predicate <p> when resolving package properties";
+          "-syntax", add_syntax_pred,
+            "<p>       Use preprocessor with predicate <p>";
+          "-dominator-from", Set_string dominator_from,
+            "<p>       compute dominator graph from this package <p>";
+          "-ignore-error", Arg.Set ignore_error,
+            "     Ignore the 'error' directive in META files";
+          "-xdot", Arg.Set xdot,
+            "         invoke ``xdot'' on .dot file";
+          "-verbose", Arg.Unit (fun () -> verbose := Verbose),
+            "         Only show the constructed command, but do not exec it\nSTANDARD OPTIONS:";
+        ] in
+
+  let (current,args) =
+      (current, !argv) in
+
+  parse_args
+    ~current
+    ~args
+    arg_spec
+    (fun s -> failwith (Printf.sprintf "Should not provide any files to the package-graph subcommand (only packages): %s" s))
+    ("usage: not-ocamlfind package-graph [options] -package <packages>");
+
+  (* ---- Start requirements analysis ---- *)
+  
+  if not (List.mem "native" !predicates) && not (List.mem "byte" !predicates) then
+    predicates := "byte" :: !predicates;
+
+  if !syntax_preds <> [] then begin
+    predicates := "syntax" :: !predicates;
+    syntax_preds := "preprocessor" :: "syntax" :: !syntax_preds;
+  end;
+
+  (* check packages: *)
+  check_package_list !packages;
+
+  let eff_packages =
+    package_deep_ancestors !predicates !packages in
+
+  (* ---- End of requirements analysis ---- *)
+
+  (* Check on [warning] directives: *)
+  List.iter
+    (fun pkg ->
+       try
+         let warning = package_property !predicates pkg "warning" in
+         prerr_endline("ocamlfind: [WARNING] Package `" ^ pkg ^
+                         "': " ^ warning)
+       with
+	   Not_found -> ()
+    )
+    eff_packages;
+
+  (* Check on [error] directives: *)
+  List.iter
+    (fun pkg ->
+       try
+	 let error = package_property !predicates pkg "error" in
+	 if !ignore_error then
+	   prerr_endline("ocamlfind: [WARNING] Package `" ^ pkg ^
+			 "' signals error: " ^ error)
+	 else
+	   failwith ("Error from package `" ^ pkg ^ "': " ^ error)
+       with
+	   Not_found -> ()
+    )
+    eff_packages;
+
+  if !verbose = Verbose then begin
+    if !syntax_preds <> [] then
+      print_string ("Effective set of preprocessor predicates: " ^
+		    String.concat "," !syntax_preds ^ "\n");
+    print_string ("Effective set of compiler predicates: " ^
+		  String.concat "," !predicates ^ "\n");
+  end;
+
+  (* initl_file_name: the initialization code inserted at the end of
+   *   the cma/cmo list (initl = init last)
+   *)
+
+  let package_graph = List.map (fun p ->
+    (p, package_ancestors !predicates p)) eff_packages in
+
+  let name2vertex = List.map (fun (p,_) ->
+    let size = size_of_package !predicates p in
+    let rhs = if size = 0 then
+        Fmt.(str "\"%s\"" p)
+      else Fmt.(str "\"%s: %a\"" p bi_byte_size size) in
+    (p, rhs)) package_graph in
+(*
+  let name2vertex = List.map (fun (p, _) -> (p, Printf.sprintf "\"%s\"" p)) package_graph in
+*)
+  let n2v n = match List.assoc n name2vertex with
+    v -> v | exception Not_found -> failwith (Printf.sprintf "package %s not in name2vertex map" n) in
+
+  let g2 = List.map (fun (s,dl) -> (n2v s, List.map n2v dl)) package_graph in
+  let dominator_from = match !dominator_from with "" -> None | s -> Some (n2v s) in
+
+  if !xdot then begin
+    let tmpfile = Filename.temp_file "graph" ".dot" in
+    let oc = open_out tmpfile in
+    PackageGraph.to_dot ~dominator_from:dominator_from oc g2 ;
+    close_out oc ;
+    ignore (Unix.system (Printf.sprintf "xdot %s" tmpfile)) ;
+    ignore (Unix.unlink tmpfile)
+  end
+  else
+    PackageGraph.to_dot ~dominator_from:dominator_from stdout g2
 ;;
 
 (************************************************************************)
@@ -1395,6 +1587,7 @@ let rec select_mode () =
     match m_string with
       ("reinstall-if-diff")               -> incr current; M_reinstall_if_diff
     | ("preprocess")             -> incr current; M_preprocess
+    | ("package-graph")             -> incr current; M_package_graph
     | _ -> M_passthru
   in
 
@@ -1409,6 +1602,7 @@ let _main av curr () =
     match m with
       M_reinstall_if_diff        -> reinstall_if_diff()
     | M_preprocess -> preprocess ()
+    | M_package_graph -> package_graph ()
     | M_passthru       -> passthru()
   with
    Failure f ->

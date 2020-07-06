@@ -14,6 +14,7 @@ depends: [
   "fmt" {>= "0.8.8"}
   "sexplib" {>= "v0.13.0"}
   "rresult" {>= "0.6.0"}
+  "ocamlgraph" {>= "1.8.8"}
 ]
 build: [
   ["./configure" "-bindir" bin "-sitelib" lib "-mandir" man "-config" "%{lib}%/findlib.conf" "-no-custom" "-no-topfind" {preinstalled}]
