@@ -4,7 +4,7 @@ Front-end to ocamlfind to add a few new commands
 
 # Features
 
-The command `not-ocamlfind` is a pass-thru to `ocamlfind`, but adds two new commands: `preprocess` and `reinstall-if-diff`.
+The command `not-ocamlfind` is a pass-thru to `ocamlfind`, but adds three new commands: `preprocess`, `reinstall-if-diff` and `package-graph`.
 
 ### `reinstall-if-diff`
 
@@ -48,6 +48,18 @@ ocamlfind ocamlc -package ounit2,ppx_deriving.show test_deriving_show.ml
 Note well that all the options destined only for the compiler, linker, etc, are removed (and henced rejected) for `preprocess`.  Only options required for preprocessing are accepted (`-package`, `-syntax`, `-predicates`, `-ppopt`, `-ppxopt`).
 
 This can work for camlp5 also, but that little bit of documentation is TBD.
+
+### `package-graph`
+
+This command outputs a graph in the format accepted by the ``dot``
+command of graphviz.  By default you get the package-dependency graph,
+with sizes of the archives for each packages as part of the
+node-label.  If you add ``-dominator-from <node>``, it will compute
+the dominator-tree from that node.  and if you add ``-xdot``, it will
+automatically invoke ``xdot`` on the graph.  Example:
+```
+not-ocamlfind package-graph -xdot -package camlp5,ounit2,pa_ppx.here.link -dominator-from pa_ppx.here.link -xdot
+```
 
 # Installation
 

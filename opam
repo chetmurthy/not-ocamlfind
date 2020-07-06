@@ -16,6 +16,11 @@ depends: [
   "rresult" {>= "0.6.0"}
   "ocamlgraph" {>= "1.8.8"}
 ]
+depexts: [
+  [
+    "xdot"
+  ] {os-family = "debian"}
+]
 build: [
   ["./configure" "-bindir" bin "-sitelib" lib "-mandir" man "-config" "%{lib}%/findlib.conf" "-no-custom" "-no-topfind" {preinstalled}]
   [make "all"]
