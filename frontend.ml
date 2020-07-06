@@ -898,7 +898,7 @@ module V = StringVertex
 module G = Imperative.Digraph.ConcreteBidirectional(V)
 
 module DotIn = struct
-  include G
+  type t = G.t
   module V = G.V
   module E = G.E
   let iter_vertex = G.iter_vertex
