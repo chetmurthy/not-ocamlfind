@@ -1,4 +1,4 @@
 # stub META file for "not-ocamlfind" frontend to "ocamlfind"
 requires = ""
-version = "0.06"
+version = "0.07"
 description = "add-on commands for ocamlfind"
