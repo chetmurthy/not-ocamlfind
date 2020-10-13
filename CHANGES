@@ -1,0 +1,9 @@
+
+not-ocamlfind 0.07.01
+---------------------
+
+* [13 Oct 2020] added a changelog
+
+  minor fix for ocamlgraph 2.0.0 compatibility.  Since ocamlgraph
+  1.8.8->2.0.0 is a breaking change, this version of not-ocamlfind
+  will only work with the newer version of ocamlgraph.

@@ -1,5 +1,5 @@
 opam-version: "2.0"
-version: "0.07"
+version: "0.07.01"
 synopsis: "A small frontend for ocamlfind that adds a few useful commands"
 maintainer: "Chet Murthy <chetsky@gmail.com>"
 
@@ -14,7 +14,7 @@ depends: [
   "fmt" {>= "0.8.8"}
   "sexplib" {>= "v0.13.0"}
   "rresult" {>= "0.6.0"}
-  "ocamlgraph" {>= "1.8.8"}
+  "ocamlgraph" {>= "2.0.0"}
 ]
 depexts: [
   [
