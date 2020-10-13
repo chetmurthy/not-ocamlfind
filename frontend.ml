@@ -913,7 +913,13 @@ module DotIn = struct
   let edge_attributes _ = []
 end
 module GDot = Graph.Graphviz.Dot(DotIn)
-module DomG = Dominator.Make_graph(G)
+module DomG = Dominator.Make_graph(struct
+    include G
+    let empty () = create ()
+    let add_edge g v1 v2 =
+      G.add_edge g v1 v2 ;
+      g
+  end)
 
 let to_dot ~dominator_from oc edges =
   let g = G.create () in
