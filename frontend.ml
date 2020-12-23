@@ -1369,7 +1369,7 @@ let prepare_reinstall_if_diff_package () =
   if !debug then Fmt.(pf stderr "removal_mods: START\n%!");
   let removal_mods = prepare_remove_package ~destdir:!destdir ~metadir:!metadir ~ldconf:!ldconf ~pkgname:!pkgname in
   if !debug then Fmt.(pf stderr "removal_mods:\n%a\n%!"
-         Sexplib.Sexp.pp_hum (sexp_of_t_pair_list removal_mods)
+         pp_t_pair_list removal_mods
       ) ;
 
   (* if this file is listed in the removal-mods, then we pretend it doesn't exist; 
@@ -1570,9 +1570,9 @@ let is_same (install_mods, removal_mods) =
 let reinstall_if_diff () =
   let (debug, install_mods, install_args, removal_mods, remove_args) = prepare_reinstall_if_diff_package() in
   if debug then Fmt.(pf stderr "reinstall_if_diff\ninstall_mods:\n%a\ninstall_args: [%a]\nremoval_mods:\n%a\nremove_args: [%a]\n%!"
-         Sexplib.Sexp.pp_hum (sexp_of_t_pair_list install_mods)
+         pp_t_pair_list install_mods
          (list ~sep:(const string " ") string) install_args
-         Sexplib.Sexp.pp_hum (sexp_of_t_pair_list removal_mods)
+         pp_t_pair_list removal_mods
          (list ~sep:(const string " ") string) remove_args
       ) ;
   if not (is_same (install_mods, removal_mods)) then begin

@@ -1,7 +1,7 @@
 
 DEBUG=
 OCAMLFIND_BINDIR:=$(shell dirname `which ocamlfind`)
-PACKAGES = str,unix,fmt,sexplib,rresult,ocamlgraph
+PACKAGES = str,unix,fmt,rresult,ocamlgraph
 INC= -I local-packages/ocamlfind/src/findlib findlib.cma
 
 all: not-ocamlfind papr_official.exe
@@ -11,7 +11,7 @@ not-ocamlfind: fsmod.ml frontend.ml main.ml
 	ocamlfind ocamlc $(DEBUG) $(INC) -package $(PACKAGES) -linkall -linkpkg fsmod.ml frontend.ml main.ml -o not-ocamlfind
 
 fsmod.ml: fsmod.ORIG.ml
-	not-ocamlfind preprocess -package camlp5,pa_ppx.deriving_plugins.show.syntax,pa_ppx.deriving_plugins.sexp.syntax,camlp5.pr_o.syntax \
+	not-ocamlfind preprocess -package camlp5,pa_ppx.deriving_plugins.show,camlp5.pr_o \
 	-syntax camlp5o $< > $@.NEW
 	mv $@.NEW $@
 
