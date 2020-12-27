@@ -1,4 +1,9 @@
 
+not-ocamlfind 0.07.02
+---------------------
+
+* [26 Oct 2020] remove dependencies on sexp (too many deps) since they were for debug only
+
 not-ocamlfind 0.07.01
 ---------------------
 
