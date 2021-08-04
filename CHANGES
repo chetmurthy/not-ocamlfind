@@ -1,4 +1,14 @@
 
+not-ocamlfind 0.08
+---------------------
+
+* [04 Aug 2021] add better support for syntax predicates.  
+
+  formerly, a syntax predicate gets added to "syntax_preds".
+
+  with this patch, "syntax_" prepended to that predicate also gets
+  added to "predicates".
+
 not-ocamlfind 0.07.02
 ---------------------
 
