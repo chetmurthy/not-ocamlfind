@@ -742,7 +742,10 @@ let preprocess () =
   let add_pred =
     Arg.String (fun s -> predicates := !predicates @ (Fl_split.in_words s)) in
   let add_syntax_pred =
-    Arg.String (fun s -> syntax_preds := !syntax_preds @ (Fl_split.in_words s)) in
+    Arg.String (fun s -> begin
+          syntax_preds := !syntax_preds @ (Fl_split.in_words s) ;
+          predicates := !predicates @ (List.map (Printf.sprintf "syntax_%s") (Fl_split.in_words s)) ;
+      end) in
   let add_pp_opt =
     Arg.String (fun s -> pp_opts := !pp_opts @ [s]) in
   let ignore_error = ref false in
@@ -956,7 +959,10 @@ let package_graph () =
   let add_pred =
     Arg.String (fun s -> predicates := !predicates @ (Fl_split.in_words s)) in
   let add_syntax_pred =
-    Arg.String (fun s -> syntax_preds := !syntax_preds @ (Fl_split.in_words s)) in
+    Arg.String (fun s -> begin
+          syntax_preds := !syntax_preds @ (Fl_split.in_words s) ;
+          predicates := !predicates @ (List.map (Printf.sprintf "syntax_%s") (Fl_split.in_words s)) ;
+      end) in
   let ignore_error = ref false in
   let dominator_from = ref "" in
   let xdot = ref false in
