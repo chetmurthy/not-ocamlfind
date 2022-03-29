@@ -13,8 +13,8 @@ include $(TOP)/Makefile.config
 NAME = findlib
 
 # Need compiler-libs since ocaml-4.00
-OCAMLC = ocamlc -I +compiler-libs
-OCAMLOPT = ocamlopt -I +compiler-libs -g
+OCAMLC = ocamlc -I +compiler-libs -I +unix -I +dynlink
+OCAMLOPT = ocamlopt -I +compiler-libs -g -I +unix -I +dynlink
 OCAMLDEP = ocamldep
 OCAMLLEX = ocamllex
 #CAMLP4O =  camlp4 pa_o.cmo pa_op.cmo pr_o.cmo --

@@ -367,7 +367,7 @@ if ocamlc -config >/dev/null 2>/dev/null; then
 else
     # Old ocamlc do not have -config.
     rm -f itest-aux/simple
-    ocamlc -w a -custom -thread -o itest-aux/simple unix.cma threads.cma itest-aux/simple_threads.ml \
+    ocamlc -w a -custom -thread -o itest-aux/simple -I +unix unix.cma threads.cma itest-aux/simple_threads.ml \
 	>itest-aux/err.out 2>&1
     output=`cat itest-aux/err.out`
 
@@ -392,7 +392,7 @@ echo "Testing DLLs..."
 
 have_dlls="yes"
 
-ocaml unix.cma itest-aux/simple.ml >/dev/null || have_dlls="no"
+ocaml -I +unix unix.cma itest-aux/simple.ml >/dev/null || have_dlls="no"
 
 ######################################################################
 # Does this version of OCaml support extension points?
@@ -573,6 +573,23 @@ else
     lgraphics=""
 fi
 
+if [ -f "${ocaml_core_stdlib}/str/str.cma" ]; then
+    str_dir='+str'
+else
+    str_dir='^'
+fi
+
+if [ -f "${ocaml_core_stdlib}/dynlink/dynlink.cma" ]; then
+    dynlink_dir='+dynlink'
+else
+    dynlink_dir='^'
+fi
+
+if [ -f "${ocaml_core_stdlib}/unix/unix.cma" ]; then
+    unix_dir='+unix'
+else
+    unix_dir='^'
+fi
 
 # Generate the META files now.
 
@@ -590,6 +607,9 @@ for lib in $l; do
     fi
     m4 -Dos=$os \
 	"-Dtype_of_threads=${ocaml_threads}" \
+	"-Dunix_dir=${unix_dir}" \
+	"-Dstr_dir=${str_dir}" \
+	"-Ddynlink_dir=${dynlink_dir}" \
 	"-Dcamlp4_dir=${camlp4_dir}" \
 	"-Dcamlp4_version=${camlp4_version}" \
 	"-Dcamlp4_cmd=${camlp4_cmd}" \

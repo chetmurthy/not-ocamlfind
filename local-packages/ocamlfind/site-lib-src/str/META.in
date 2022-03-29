@@ -3,7 +3,7 @@ dnl This file is input of the m4 macro processor.
 `requires = ""'
 `description = "Regular expressions and string processing"'
 `version = "[distributed with Ocaml]"'
-`directory = "^"'
+`directory = "'str_dir`"'
 `browse_interfaces = "'interfaces`"'
 `archive(byte) = "str.cma"'
 `archive(native) = "str.cmxa"'
