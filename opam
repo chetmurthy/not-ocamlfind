@@ -1,5 +1,6 @@
 opam-version: "2.0"
 synopsis: "A small frontend for ocamlfind that adds a few useful commands"
+license: "MIT"
 maintainer: "Chet Murthy <chetsky@gmail.com>"
 
 (* Gerd wrote most of this code; I just modified it (and probably
@@ -29,8 +30,8 @@ build: [
 install: [make "install"]
 dev-repo: "git+https://github.com/chetmurthy/not-ocamlfind"
 url {
-  src: "https://github.com/chetmurthy/not-ocamlfind/archive/0.08.tar.gz"
+  src: "https://github.com/chetmurthy/not-ocamlfind/archive/refs/tags/0.09.tar.gz"
   checksum: [
-    "sha512=795091155c765a4dc7a092424abd628eaaadf3e5e0371d7519adcad9b90604958e1b39c5ac8a53e60209dcdf3ab127bc6ee65b4c6c55411386f63cfdb6f78c6c"
+    "sha512=3c0277f28eeb1cb8be983b5748e53594e1b2fbf551228784476d8a363c5b3750be4bb563612bb4be99d871a4f84831ae11a8318de7bd0d26b884abf45089cbcb"
   ]
 }
