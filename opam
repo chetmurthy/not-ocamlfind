@@ -1,5 +1,4 @@
 opam-version: "2.0"
-version: "0.07.02"
 synopsis: "A small frontend for ocamlfind that adds a few useful commands"
 maintainer: "Chet Murthy <chetsky@gmail.com>"
 
@@ -11,6 +10,8 @@ homepage: "https://github.com/chetmurthy/not-ocamlfind"
 bug-reports: "Chet Murthy <chetsky@gmail.com>"
 depends: [
   "ocamlfind" {>= "1.8.0"}
+  "camlp-streams"
+  "conf-m4" {build}
   "fmt" {>= "0.8.8"}
   "rresult" {>= "0.6.0"}
   "ocamlgraph" {>= "2.0.0"}
@@ -28,5 +29,8 @@ build: [
 install: [make "install"]
 dev-repo: "git+https://github.com/chetmurthy/not-ocamlfind"
 url {
-  src: "git+file:///home/chet/Hack/Camlp5/src/not-ocamlfind#master"
+  src: "https://github.com/chetmurthy/not-ocamlfind/archive/0.08.tar.gz"
+  checksum: [
+    "sha512=795091155c765a4dc7a092424abd628eaaadf3e5e0371d7519adcad9b90604958e1b39c5ac8a53e60209dcdf3ab127bc6ee65b4c6c55411386f63cfdb6f78c6c"
+  ]
 }
