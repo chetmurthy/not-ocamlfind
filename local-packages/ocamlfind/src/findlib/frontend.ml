@@ -1224,12 +1224,12 @@ let ocamlc which () =
         (fun pkg ->
            Printf.fprintf
              initl
-             "Findlib.record_package Findlib.Record_core %S;;\n"
+             "let () = Findlib.record_package Findlib.Record_core %S;;\n"
              pkg
         )
         eff_packages;
       output_string initl
-	("Findlib.record_package_predicates [" ^
+	("let () = Findlib.record_package_predicates [" ^
 	 String.concat ";"
 	   (List.map
 	      (fun pred -> "\"" ^ String.escaped pred ^ "\"")
@@ -1567,7 +1567,7 @@ let ocamldoc() =
 (* From ocamldep source code: *)
 let depends_on_char, continuation_char =
   match Sys.os_type with
-  | "Unix" | "Win32" | "Cygwin" -> ':', '\\'
+  | "Unix" | "BeOS" | "Win32" | "Cygwin" -> ':', '\\'
   | "MacOS" -> '\196', '\182'
   | _ -> assert false
 ;;
@@ -1823,7 +1823,7 @@ let copy_file ?(rename = (fun name -> name)) ?(append = "") src dstdir =
 		   outpath in
     try
       let buflen = 4096 in
-      let buf = String.create buflen in   (* FIXME: Bytes.create *)
+      let buf = Bytes.create buflen in
       let pos = ref 0 in
       let len = ref (input ch_in buf 0 buflen) in
       while !len > 0 do
@@ -2015,7 +2015,7 @@ let meta_pkg meta_name =
     pkg
   with
   | Failure s
-  | Stream.Error s ->
+  | Fl_metascanner.Error s ->
     close_in f;
     failwith ("Cannot parse '" ^ meta_name ^ "': " ^ s)
 
@@ -2432,7 +2432,7 @@ let print_configuration() =
   in
 
   let var = ref None in
-  let errmsg = "usage: ocamlfind printconf (conf|path|destdir|metadir|effmetadir|stdlib|ldconf)" in
+  let errmsg = "usage: ocamlfind printconf (conf|path|destdir|metadir|metapath|stdlib|ldconf)" in
 
   parse_args
         []

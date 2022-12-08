@@ -4,6 +4,7 @@
 #----------------------------------------------------------------------
 
 include Makefile.config
+-include Makefile.packages
 
 TOP=.
 
@@ -16,19 +17,17 @@ all:
 opt:
 	for p in $(PARTS); do ( cd src/$$p; $(MAKE) opt ) || exit; done
 
-install:
-	mkdir -p "$(prefix)$(OCAMLFIND_BIN)"
-	mkdir -p "$(prefix)$(OCAMLFIND_MAN)"
+install: check-installation
+	$(INSTALLDIR) "$(DESTDIR)$(prefix)$(OCAMLFIND_BIN)"
+	$(INSTALLDIR) "$(DESTDIR)$(prefix)$(OCAMLFIND_MAN)"
 	$(MAKE) install-config
 	for p in $(PARTS); do ( cd src/$$p; $(MAKE) install ); done
 	$(MAKE) install-meta
-	test -z "$(NUMTOP)" || { cd src/findlib; $(MAKE) install-num-top; }
-	if [ $(INSTALL_CAMLP4) -eq 1 ]; then \
-		cp tools/safe_camlp4 "$(prefix)$(OCAMLFIND_BIN)"; \
-	fi
+	test ! -f 'site-lib-src/num-top/META' || { cd src/findlib; $(MAKE) install-num-top; }
+	test ! -f 'site-lib-src/camlp4/META' ||	$(INSTALLFILE) tools/safe_camlp4 "$(DESTDIR)$(prefix)$(OCAMLFIND_BIN)"
 	$(MAKE) install-doc
 
-uninstall:
+uninstall: check-installation
 	$(MAKE) uninstall-doc
 	$(MAKE) uninstall-meta
 	for p in `cd src; echo *`; do ( cd src/$$p; $(MAKE) uninstall ); done
@@ -38,7 +37,7 @@ clean:
 	for p in `cd src; echo *`; do ( cd src/$$p; $(MAKE) clean ); done
 	(cd itest-aux; $(MAKE) clean)
 	(cd tools/extract_args; $(MAKE) clean)
-	rm -f findlib.conf
+	rm -f findlib.conf Makefile.packages
 
 .PHONY: release
 release: README
@@ -71,32 +70,50 @@ findlib.conf: findlib.conf.in
 
 .PHONY: install-doc
 install-doc:
-	mkdir -p "$(prefix)$(OCAMLFIND_MAN)/man1" "$(prefix)$(OCAMLFIND_MAN)/man3" "$(prefix)$(OCAMLFIND_MAN)/man5"
-	-cp doc/ref-man/ocamlfind.1 "$(prefix)$(OCAMLFIND_MAN)/man1"
-	-cp doc/ref-man/META.5 doc/ref-man/site-lib.5 doc/ref-man/findlib.conf.5 "$(prefix)$(OCAMLFIND_MAN)/man5"
+	$(INSTALLDIR) "$(DESTDIR)$(prefix)$(OCAMLFIND_MAN)/man1" "$(DESTDIR)$(prefix)$(OCAMLFIND_MAN)/man3" "$(DESTDIR)$(prefix)$(OCAMLFIND_MAN)/man5"
+	-$(INSTALLFILE) doc/ref-man/ocamlfind.1 "$(DESTDIR)$(prefix)$(OCAMLFIND_MAN)/man1"
+	-$(INSTALLFILE) doc/ref-man/META.5 doc/ref-man/site-lib.5 doc/ref-man/findlib.conf.5 "$(DESTDIR)$(prefix)$(OCAMLFIND_MAN)/man5"
 
 .PHONY: uninstall-doc
 uninstall-doc:
-	rm -f "$(prefix)$(OCAMLFIND_MAN)/man1/ocamlfind.1"
-	rm -f "$(prefix)$(OCAMLFIND_MAN)/man3/Findlib.3"
-	rm -f "$(prefix)$(OCAMLFIND_MAN)/man3/Topfind.3"
-	rm -f "$(prefix)$(OCAMLFIND_MAN)/man5/META.5"
-	rm -f "$(prefix)$(OCAMLFIND_MAN)/man5/site-lib.5"
+	rm -f "$(DESTDIR)$(prefix)$(OCAMLFIND_MAN)/man1/ocamlfind.1"
+	rm -f "$(DESTDIR)$(prefix)$(OCAMLFIND_MAN)/man3/Findlib.3"
+	rm -f "$(DESTDIR)$(prefix)$(OCAMLFIND_MAN)/man3/Topfind.3"
+	rm -f "$(DESTDIR)$(prefix)$(OCAMLFIND_MAN)/man5/META.5"
+	rm -f "$(DESTDIR)$(prefix)$(OCAMLFIND_MAN)/man5/site-lib.5"
 
+
+.PHONY: check-installation
+check-installation:
+	if [ "$(CHECK_BEFORE_INSTALL)" -eq 1 ]; then \
+    for x in camlp4 dbm graphics labltk num ocamlbuild; do \
+      if [ -f "$(prefix)$(OCAML_SITELIB)/$$x/META" ]; then \
+        if ! grep -Fq '[distributed with Ocaml]' "$(prefix)/$(OCAML_SITELIB)/$$x/META"; then \
+          rm -f site-lib-src/$$x/META; \
+        fi; \
+      fi; \
+    done; \
+    test -f "site-lib-src/num/META" || rm -f "site-lib-src/num-top/META"; \
+  fi
+	echo 'SITELIB_META =' > Makefile.packages.in
+	for x in `ls site-lib-src`; do test ! -f "site-lib-src/$$x/META" || echo $$x >> Makefile.packages.in; done
+	tr '\n' ' ' < Makefile.packages.in > Makefile.packages
+	rm Makefile.packages.in
 
 .PHONY: install-meta
 install-meta:
-	for x in `ls site-lib-src`; do if [ -f "site-lib-src/$$x/META" ]; then mkdir -p "$(prefix)$(OCAML_SITELIB)/$$x"; cp site-lib-src/$$x/META "$(prefix)$(OCAML_SITELIB)/$$x"; fi; done
+	for x in $(SITELIB_META); do $(INSTALLDIR) "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/$$x"; $(INSTALLFILE) site-lib-src/$$x/META "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/$$x/META.tmp" && mv "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/$$x/META.tmp" "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/$$x/META"; done
+	$(INSTALLDIR) "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/findlib"; $(INSTALLFILE) Makefile.packages "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/findlib/Makefile.packages"
 
 .PHONY: uninstall-meta
 uninstall-meta:
-	for x in `ls site-lib-src`; do if [ -f "site-lib-src/$$x/META" ]; then rm -rf "$(prefix)$(OCAML_SITELIB)/$$x"; fi; done
+	for x in $(SITELIB_META); do rm -rf "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/$$x"; done
 
 .PHONY: install-config
 install-config:
-	mkdir -p "`dirname \"$(prefix)$(OCAMLFIND_CONF)\"`"
-	@if [ -f "$(prefix)$(OCAMLFIND_CONF)" ]; then echo "!!! Keeping old $(prefix)$(OCAMLFIND_CONF) !!!"; fi
-	test -f "$(prefix)$(OCAMLFIND_CONF)" || cp findlib.conf "$(prefix)$(OCAMLFIND_CONF)"
+	$(INSTALLDIR) "`dirname \"$(DESTDIR)$(prefix)$(OCAMLFIND_CONF)\"`"
+	@if [ -f "$(DESTDIR)$(prefix)$(OCAMLFIND_CONF)" ]; then echo "!!! Keeping old $(DESTDIR)$(prefix)$(OCAMLFIND_CONF) !!!"; fi
+	test -f "$(DESTDIR)$(prefix)$(OCAMLFIND_CONF)" || $(INSTALLFILE) findlib.conf "$(DESTDIR)$(prefix)$(OCAMLFIND_CONF)"
 
 .PHONY: uninstall-config
 uninstall-config:
@@ -127,9 +144,9 @@ interface-lists:
 .PHONY: package-macosx
 
 package-macosx: all opt
-	mkdir -p package-macosx/root
+	$(INSTALLDIR) package-macosx/root
 	export prefix=`pwd`/package-macosx/root && make install
-	export VERSION=1.1.2 && tools/make-package-macosx
+	export VERSION=1.1.2 && sh tools/make-package-macosx
 
 clean-macosx:
 	sudo rm -rf package-macosx
