@@ -30,8 +30,8 @@ build: [
 install: [make "install"]
 dev-repo: "git+https://github.com/chetmurthy/not-ocamlfind"
 url {
-  src: "https://github.com/chetmurthy/not-ocamlfind/archive/refs/tags/0.09.tar.gz"
+  src: ""
   checksum: [
-    "sha512=3c0277f28eeb1cb8be983b5748e53594e1b2fbf551228784476d8a363c5b3750be4bb563612bb4be99d871a4f84831ae11a8318de7bd0d26b884abf45089cbcb"
+    "sha512="
   ]
 }
