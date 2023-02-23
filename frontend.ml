@@ -1366,6 +1366,7 @@ let prepare_reinstall_if_diff_package () =
 		   Auto -> auto_files := s :: !auto_files
 		 | Dll  -> dll_files := s :: !dll_files
 		 | No_dll -> nodll_files := s :: !nodll_files
+             else failwith Fmt.(str "reinstall-if-diff: file (to be installed) %s does not exist" s)
 	)
 	errmsg;
   if !pkgname = "" then (Arg.usage keywords errmsg; exit 1);
