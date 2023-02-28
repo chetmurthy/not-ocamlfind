@@ -739,6 +739,10 @@ let preprocess () =
 
   let add_pkg =
     Arg.String (fun s -> packages := !packages @ (Fl_split.in_words s)) in
+  let ignore_for_pack =
+    Arg.String (fun s -> Fmt.(pf stderr "not-ocamlfind preprocess: ignore -for-pack %s\n%!" s)) in
+  let ignore_linkall =
+    Arg.Unit (fun _ -> Fmt.(pf stderr "not-ocamlfind preprocess: ignore -linkall\n%!")) in
   let add_pred =
     Arg.String (fun s -> predicates := !predicates @ (Fl_split.in_words s)) in
   let add_syntax_pred =
@@ -754,6 +758,10 @@ let preprocess () =
     [
           "-package", add_pkg,
             "<name>   Refer to package when compiling";
+          "-for-pack", ignore_for_pack,
+            "<name>   Ignored -for-pack option from ocamlc";
+          "-linkall", ignore_linkall,
+            "         Ignored -linkall option from ocamlc";
           "-predicates", add_pred,
             "<p>   Add predicate <p> when resolving package properties";
           "-syntax", add_syntax_pred,
