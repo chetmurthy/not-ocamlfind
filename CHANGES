@@ -1,4 +1,9 @@
 
+not-ocamlfind 0.10
+---------------------
+
+* [30 Mar 2023] in "preprocess", ignore "-for-pack", "-linkall" arguments so we can just replace "ocamlc" with "preprocess"
+
 not-ocamlfind 0.08
 ---------------------
 
