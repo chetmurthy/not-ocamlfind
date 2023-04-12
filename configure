@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 (cd local-packages/ocamlfind \
-  && ./configure $* )
+  && ./configure "$@" )
