@@ -10,10 +10,10 @@ not-ocamlfind: fsmod.ml frontend.ml main.ml
 	(cd  local-packages/ocamlfind/ && make)
 	ocamlfind ocamlc $(DEBUG) $(INC) -package $(PACKAGES) -linkall -linkpkg fsmod.ml frontend.ml main.ml -o not-ocamlfind
 
-fsmod.ml: fsmod.ORIG.ml
+bootstrap: fsmod.ORIG.ml
 	not-ocamlfind preprocess -package camlp5,pa_ppx.deriving_plugins.show,camlp5.pr_o \
-	-syntax camlp5o $< > $@.NEW
-	mv $@.NEW $@
+	-syntax camlp5o $< > fsmod.ml.NEW
+	mv fsmod.ml.NEW fsmod.ml
 
 papr_official.exe: papr_official.ml
 	ocamlfind ocamlc $(DEBUG) $(INC) -package str,unix,compiler-libs.common \
