@@ -1,16 +1,20 @@
+not-ocamlfind 0.12
+------------------
 
-not-ocamlfind 0.10
----------------------
+* [22 Sep 2023] change bootstrap in Makefile to avoid freebsd build bug
+
+not-ocamlfind 0.11
+------------------
 
 * [30 Aug 2023] swap "bash" to "sh"
 
-not-ocamlfind 0.11
----------------------
+not-ocamlfind 0.10
+------------------
 
 * [30 Mar 2023] in "preprocess", ignore "-for-pack", "-linkall" arguments so we can just replace "ocamlc" with "preprocess"
 
 not-ocamlfind 0.08
----------------------
+------------------
 
 * [04 Aug 2021] add better support for syntax predicates.  
 
