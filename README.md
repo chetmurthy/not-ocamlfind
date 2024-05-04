@@ -45,7 +45,7 @@ can be coaxed to produce its preprocessed output by adding "-dsource".  But this
 ```
 ocamlfind ocamlc -package ounit2,ppx_deriving.show test_deriving_show.ml
 ```
-Note well that all the options destined only for the compiler, linker, etc, are removed (and henced rejected) for `preprocess`.  Only options required for preprocessing are accepted (`-package`, `-syntax`, `-predicates`, `-ppopt`, `-ppxopt`).
+Note well that all the options destined only for the compiler, linker, etc, are removed (and henced rejected) for `preprocess`.  Only options required for preprocessing are accepted (`-package`, `-syntax`, `-predicates`, `-ppopt`, `-ppxopt`, `-intf`, `-impl`).
 
 This can work for camlp5 also, but that little bit of documentation is TBD.
 

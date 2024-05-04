@@ -1,3 +1,9 @@
+not-ocamlfind 0.13
+------------------
+
+* [3 May 2024] add "-impl", "-intf" to the "preprocess" command (pass
+  thru to camlp5).  Also fix Freebsd build process.
+
 not-ocamlfind 0.12
 ------------------
 

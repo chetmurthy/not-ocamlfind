@@ -750,8 +750,9 @@ let preprocess () =
           syntax_preds := !syntax_preds @ (Fl_split.in_words s) ;
           predicates := !predicates @ (List.map (Printf.sprintf "syntax_%s") (Fl_split.in_words s)) ;
       end) in
+  let do_add_pp_opt s = pp_opts := !pp_opts @ [s] in
   let add_pp_opt =
-    Arg.String (fun s -> pp_opts := !pp_opts @ [s]) in
+    Arg.String do_add_pp_opt in
   let ignore_error = ref false in
 
   let arg_spec =
@@ -770,12 +771,16 @@ let preprocess () =
             "<opt>      Append option <opt> to preprocessor invocation";
           "-ppxopt", Arg.String (fun s -> ppx_opts := !ppx_opts @ [s]),
             "<pkg>,<opts>  Append options <opts> to ppx invocation for package <pkg>";
+          "-impl", Arg.Unit (fun () -> do_add_pp_opt "-impl"),
+            "<p>	Append \"impl\" to preprocessor invocation";
+          "-intf", Arg.Unit (fun () -> do_add_pp_opt "-intf"),
+            "<p>	Append \"intf\" to preprocessor invocation";
           "-ignore-error", Arg.Set ignore_error,
             "     Ignore the 'error' directive in META files";
           "-only-show", Arg.Unit (fun () -> verbose := Only_show),
-            "         Only show the constructed command, but do not exec it\nSTANDARD OPTIONS:";
+            "         Only show the constructed command, but do not exec it";
           "-verbose", Arg.Unit (fun () -> verbose := Verbose),
-            "         Only show the constructed command, but do not exec it\nSTANDARD OPTIONS:";
+            "         Show the constructed command and also exec it\nSTANDARD OPTIONS:";
         ] in
 
   let (current,args) =
