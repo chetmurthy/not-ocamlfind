@@ -43,7 +43,7 @@ ocamlfind ocamlc -package ounit2,ppx_deriving.show -c test_deriving_show.ml
 ```
 can be coaxed to produce its preprocessed output by adding "-dsource".  But this is messy and ugly, esp. when we might want to use that source for further compilation.  It also isn't very helpful when dealing with a multi-stage PPX rewriter sequence.  `preprocess` produces the source and does not attempt to compile it; as an added benefit, it prints (to stderr) the commands it executed to produce that source.  So you can use this for debugging  multi-stage PPX rewriter sequences:
 ```
-ocamlfind ocamlc -package ounit2,ppx_deriving.show test_deriving_show.ml
+ocamlfind preprocess -package ounit2,ppx_deriving.show test_deriving_show.ml
 ```
 Note well that all the options destined only for the compiler, linker, etc, are removed (and henced rejected) for `preprocess`.  Only options required for preprocessing are accepted (`-package`, `-syntax`, `-predicates`, `-ppopt`, `-ppxopt`, `-intf`, `-impl`).
 
