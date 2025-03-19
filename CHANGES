@@ -1,3 +1,9 @@
+not-ocamlfind 0.14
+------------------
+
+* [19 Mar 2025] update cached copy of ocamlfind to 1.9.8; update toplevel Makefile
+  to hopefully work well on Windows.
+
 not-ocamlfind 0.13
 ------------------
 
