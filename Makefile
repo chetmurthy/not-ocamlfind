@@ -2,7 +2,6 @@
 include local-packages/ocamlfind/Makefile.config
 
 DEBUG=
-OCAMLFIND_BINDIR:=$(shell dirname `which ocamlfind`)
 PACKAGES = str,unix,fmt,rresult,ocamlgraph,camlp-streams
 INC= -I local-packages/ocamlfind/src/findlib findlib.cma
 
@@ -22,12 +21,12 @@ papr_official.exe: papr_official.ml
 	-linkall -linkpkg $< -o $@
 
 install: not-ocamlfind$(EXEC_SUFFIX)
-	install not-ocamlfind$(EXEC_SUFFIX) $(OCAMLFIND_BINDIR)/not-ocamlfind$(EXEC_SUFFIX)
+	$(INSTALLFILE) not-ocamlfind$(EXEC_SUFFIX) $(OCAMLFIND_BIN)
 	ocamlfind remove not-ocamlfind || true
 	ocamlfind install not-ocamlfind META papr_official.exe
 
 uninstall:
-	rm -f  $(OCAMLFIND_BINDIR)/not-ocamlfind$(EXEC_SUFFIX)
+	rm -f  $(OCAMLFIND_BIN)/not-ocamlfind$(EXEC_SUFFIX)
 	ocamlfind remove not-ocamlfind || true
 
 clean:
