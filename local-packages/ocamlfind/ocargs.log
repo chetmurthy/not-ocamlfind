@@ -1,4 +1,0 @@
-ocamllex -o extract_args.ml extract_args.mll
-17 states, 566 transitions, table size 2366 bytes
-2076 additional bytes used for bindings
-ocamlc -o extract_args extract_args.ml

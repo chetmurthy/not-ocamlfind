@@ -14,23 +14,24 @@ NAME = findlib
 
 # Need compiler-libs since ocaml-4.00
 OCAMLC = ocamlc -I +compiler-libs
-OCAMLOPT = ocamlopt -I +compiler-libs -g
+OCAMLOPT = ocamlopt -I +compiler-libs $(OCAMLOPT_G)
+OCAMLOPT_SHARED = $(OCAMLOPT)
 OCAMLDEP = ocamldep
 OCAMLLEX = ocamllex
 #CAMLP4O =  camlp4 pa_o.cmo pa_op.cmo pr_o.cmo --
 #CAMLP4O =  camlp4 pa_o.cmo pa_op.cmo pr_dump.cmo --
 
 
-OBJECTS        = findlib_config.cmo fl_split.cmo fl_metatoken.cmo fl_meta.cmo \
-		 fl_metascanner.cmo fl_topo.cmo fl_package_base.cmo \
-	         findlib.cmo fl_args.cmo fl_lint.cmo
+OBJECTS        = fl_compat.cmo fl_split.cmo findlib_config.cmo \
+		 fl_metatoken.cmo fl_meta.cmo fl_metascanner.cmo fl_topo.cmo \
+		 fl_package_base.cmo findlib.cmo fl_args.cmo fl_lint.cmo
 TOBJECTS       = topfind.cmo
 
 XOBJECTS       = $(OBJECTS:.cmo=.cmx)
-TXOBJECTS      = topfind.cmx
+TXOBJECTS      = $(TOBJECTS:.cmo=.cmx)
 
 OCAMLFIND_OBJECTS = ocaml_args.cmo frontend.cmo
-OCAMLFIND_XOBJECTS = ocaml_args.cmx frontend.cmx
+OCAMLFIND_XOBJECTS = $(OCAMLFIND_OBJECTS:.cmo=.cmx)
 
 # OCAMLFIND_ARCHIVES: set in Makefile.config
 OCAMLFIND_XARCHIVES = $(OCAMLFIND_ARCHIVES:.cma=.cmxa)
@@ -69,13 +70,13 @@ findlib_top.cma: $(TOBJECTS)
 findlib.cmxa: $(XOBJECTS)
 	$(OCAMLOPT) -a -o findlib.cmxa $(XOBJECTS)
 	if [ $(HAVE_NATDYNLINK) -gt 0 ]; then \
-	    $(OCAMLOPT) -shared -o findlib.cmxs $(XOBJECTS); \
+	    $(OCAMLOPT_SHARED) -shared -o findlib.cmxs $(XOBJECTS); \
 	fi
 
 findlib_top.cmxa: $(TXOBJECTS)
 	$(OCAMLOPT) -a -o findlib_top.cmxa $(TXOBJECTS)
 	if [ $(HAVE_NATDYNLINK) -gt 0 ]; then \
-	    $(OCAMLOPT) -shared -o findlib_top.cmxs $(TXOBJECTS); \
+	    $(OCAMLOPT_SHARED) -shared -o findlib_top.cmxs $(TXOBJECTS); \
 	fi
 
 findlib_dynload.cma: $(DYNLOAD_OBJECTS)
@@ -84,7 +85,7 @@ findlib_dynload.cma: $(DYNLOAD_OBJECTS)
 findlib_dynload.cmxa: $(DYNLOAD_XOBJECTS)
 	$(OCAMLOPT) -a -o findlib_dynload.cmxa $(DYNLOAD_XOBJECTS)
 	if [ $(HAVE_NATDYNLINK) -gt 0 ]; then \
-	    $(OCAMLOPT) -shared -o findlib_dynload.cmxs $(DYNLOAD_XOBJECTS); \
+	    $(OCAMLOPT_SHARED) -shared -o findlib_dynload.cmxs $(DYNLOAD_XOBJECTS); \
 	fi
 
 findlib_config.ml: findlib_config.mlp $(TOP)/Makefile.config
@@ -93,6 +94,7 @@ findlib_config.ml: findlib_config.mlp $(TOP)/Makefile.config
 	cat findlib_config.mlp | \
 	        $(SH) $(TOP)/tools/patch '@CONFIGFILE@' '$(OCAMLFIND_CONF)' | \
 	        $(SH) $(TOP)/tools/patch '@STDLIB@' '$(OCAML_CORE_STDLIB)' | \
+	        $(SH) $(TOP)/tools/patch '@RELATIVE_PATHS@' '$(RELATIVE_PATHS)' | \
 		sed -e 's;@AUTOLINK@;$(OCAML_AUTOLINK);g' \
 		    -e 's;@SYSTEM@;$(SYSTEM);g' \
 		     >findlib_config.ml
@@ -105,11 +107,20 @@ topfind.ml: topfind.ml.in
 			> topfind.ml ;                                   \
 	fi
 
-topfind: topfind_rd$(OCAML_REMOVE_DIRECTORY).p
+topfind.compat.in: topfind.in
+	if [ "$(OCAML_REMOVE_DIRECTORY)" = "1" ]; then                        \
+		cp $< $@;                                                     \
+	else                                                                  \
+		sed -e '/REMOVE_DIRECTORY_BEGIN/,/REMOVE_DIRECTORY_END/ d' $< \
+			> $@ ;                                                \
+	fi
+
+topfind: topfind.compat.in
 	USE_CYGPATH="$(USE_CYGPATH)"; \
 	export USE_CYGPATH; \
-	cat topfind_rd$(OCAML_REMOVE_DIRECTORY).p | \
-	        $(SH) $(TOP)/tools/patch '@SITELIB@' '$(OCAML_SITELIB)' \
+	cat topfind.compat.in | \
+	        $(SH) $(TOP)/tools/patch '@SITELIB@' '$(OCAML_SITELIB)' | \
+	        $(SH) $(TOP)/tools/patch '@RELATIVE_PATHS@' '$(RELATIVE_PATHS)' \
 	    	    >topfind
 
 num_top.cma: $(NUMTOP_OBJECTS)
@@ -117,14 +128,14 @@ num_top.cma: $(NUMTOP_OBJECTS)
 
 clean:
 	rm -f *.cmi *.cmo *.cma *.cmx *.a *.lib *.o *.obj *.cmxa \
-	  fl_meta.ml findlib_config.ml findlib.mml topfind.ml topfind \
+	  fl_meta.ml findlib_config.ml topfind.ml topfind.compat.in topfind \
 	  ocamlfind$(EXEC_SUFFIX) ocamlfind_opt$(EXEC_SUFFIX)
 
 install: all
 	$(INSTALLDIR) "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/$(NAME)"
 	$(INSTALLDIR) "$(DESTDIR)$(prefix)$(OCAMLFIND_BIN)"
 	test $(INSTALL_TOPFIND) -eq 0 || $(INSTALLDIR) "$(DESTDIR)$(prefix)$(OCAML_CORE_STDLIB)"
-	test $(INSTALL_TOPFIND) -eq 0 || $(INSTALLFILE) topfind "$(DESTDIR)$(prefix)$(OCAML_CORE_STDLIB)/"
+	test $(INSTALL_TOPFIND) -eq 0 || $(CP) topfind "$(DESTDIR)$(prefix)$(OCAML_CORE_STDLIB)/"
 	files=`$(SH) $(TOP)/tools/collect_files $(TOP)/Makefile.config \
 	findlib.cmi findlib.mli findlib.cma findlib.cmxa findlib$(LIB_SUFFIX) findlib.cmxs \
 	findlib_config.cmi findlib_config.ml topfind.cmi topfind.mli \
@@ -133,18 +144,18 @@ install: all
 	fl_metatoken.cmi findlib_top.cma findlib_top.cmxa findlib_top$(LIB_SUFFIX) findlib_top.cmxs \
 	findlib_dynload.cma findlib_dynload.cmxa findlib_dynload$(LIB_SUFFIX) findlib_dynload.cmxs fl_dynload.mli fl_dynload.cmi \
 	META` && \
-	$(INSTALLFILE) $$files "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/$(NAME)/"
+	$(CP) $$files "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/$(NAME)/"
 	f="ocamlfind$(EXEC_SUFFIX)"; { test -f ocamlfind_opt$(EXEC_SUFFIX) && f="ocamlfind_opt$(EXEC_SUFFIX)"; }; \
 	$(INSTALLFILE) $$f "$(DESTDIR)$(prefix)$(OCAMLFIND_BIN)/ocamlfind$(EXEC_SUFFIX)"
 	# the following "if" block is only needed for 4.00beta2
 	if [ $(OCAML_REMOVE_DIRECTORY) -eq 0 -a -f "$(OCAML_CORE_STDLIB)/compiler-libs/topdirs.cmi" ]; then \
 	    cd "$(OCAML_CORE_STDLIB)/compiler-libs/"; \
-	    $(INSTALLFILE) topdirs.cmi toploop.cmi "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/$(NAME)/"; \
+	    $(CP) topdirs.cmi toploop.cmi "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/$(NAME)/"; \
 	fi
 
 install-num-top:
 	$(INSTALLDIR) "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/num-top"
-	$(INSTALLFILE) num_top.cma num_top.cmi num_top_printers.cmi \
+	$(CP) num_top.cma num_top.cmi num_top_printers.cmi \
 		"$(DESTDIR)$(prefix)$(OCAML_SITELIB)/num-top/"
 
 # Note: uninstall-num-top is part of the removal of the META files.
@@ -160,14 +171,8 @@ depend: *.ml *.mli fl_meta.ml fl_metascanner.ml findlib_config.ml topfind.ml
 
 # Some 'make' implementations require that .SUFFIXES must occur before
 # the first suffix rule. (E.g. AIX)
-.SUFFIXES: .mll .cmo .cmi .cmx .ml .mli .mml
+.SUFFIXES: .mll .cmo .cmi .cmx .ml .mli
 # .src
-
-.mml.cmo:
-	$(OCAMLC) $(OPAQUE) $(OCAMLC_FLAGS) $(OCAMLFIND_OCAMLFLAGS) -g -vmthread -c -impl $<
-
-.mml.cmx:
-	$(OCAMLOPT) $(OPAQUE) $(OCAMLOPT_FLAGS) $(OCAMLFIND_OCAMLFLAGS) -thread -c -impl $<
 
 .ml.cmx:
 	$(OCAMLOPT) $(OPAQUE) $(OCAMLOPT_FLAGS) $(OCAMLFIND_OCAMLFLAGS) -c $<

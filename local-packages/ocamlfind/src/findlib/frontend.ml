@@ -856,7 +856,7 @@ let query_package () =
     let eff_packages =
       if !recursive then begin
         if !descendants then
-          Fl_package_base.package_users predicates1 packages1
+          Fl_package_base.package_users ~preds:predicates1 packages1
         else
           package_deep_ancestors predicates1 packages1
       end
@@ -1100,7 +1100,8 @@ let ocamlc which () =
 	  predicates := "mt" :: "mt_vm" :: !predicates;
 
       | `POSIX_threads ->
-	  pass_options := !pass_options @ [ "-thread" ];
+          if not Findlib_config.ocaml_has_meta_files then
+	    pass_options := !pass_options @ [ "-thread" ];
 	  predicates := "mt" :: "mt_posix" :: !predicates;
   );
 
@@ -1253,7 +1254,11 @@ let ocamlc which () =
 	tr Sys.remove (Filename.chop_extension initl_file_name ^ ".cmo");
       );
 
-  let exclude_list = [ stdlibdir; threads_dir; vmthreads_dir ] in
+  let exclude_list =
+    if Findlib_config.ocaml_has_meta_files then
+      [ stdlibdir ]
+    else
+      [ stdlibdir; threads_dir; vmthreads_dir ] in
   (* Don't generate -I options for these directories because there is
    * also some magic in ocamlc/ocamlopt that would not work otherwise
    *)
@@ -1311,7 +1316,8 @@ let ocamlc which () =
              else
                [] in
 	   let pkg_dir =
-	     if pkg = "threads" then   (* MAGIC *)
+	     if not Findlib_config.ocaml_has_meta_files && pkg = "threads" then
+	       (* MAGIC for pre-5.x days *)
 	       match !threads with
 		   `None -> stdlibdir
 		 | `VM_threads -> vmthreads_dir
@@ -2027,8 +2033,13 @@ let char_lowercase_ascii c =
   then Char.unsafe_chr(Char.code c + 32)
   else c
 
-let string_lowercase_ascii =
-  String.map char_lowercase_ascii
+let string_lowercase_ascii s =
+  let n = String.length s in
+  let b = Bytes.create n in
+  for i = 0 to n - 1 do
+    Bytes.unsafe_set b i (char_lowercase_ascii (String.unsafe_get s i))
+  done;
+  Bytes.to_string b
 
 
 let install_package () =

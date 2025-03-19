@@ -6,7 +6,8 @@ TOP=../..
 include $(TOP)/Makefile.config
 
 OCAMLC = ocamlc
-OCAMLOPT = ocamlopt -g
+OCAMLOPT = ocamlopt $(OCAMLOPT_G)
+OCAMLOPT_SHARED = $(OCAMLOPT)
 
 build: all opt
 
@@ -16,13 +17,13 @@ all:
 opt:
 	$(OCAMLOPT) -a -o bytes.cmxa bytes.ml
 	if [ $(HAVE_NATDYNLINK) -gt 0 ]; then \
-	    $(OCAMLOPT) -shared -o bytes.cmxs bytes.cmxa; \
+	    $(OCAMLOPT_SHARED) -shared -o bytes.cmxs bytes.cmxa; \
 	fi
 
 install: all
 	$(INSTALLDIR) "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/bytes"
-	$(INSTALLFILE) META $(BYTE_FILES) "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/bytes/"
-	for f in $(NATIVE_FILES) $(NATIVE_FILES_DYNLINK); do if [ -f "$$f" ]; then $(INSTALLFILE) $$f "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/bytes/"; fi; done
+	$(CP) META $(BYTE_FILES) "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/bytes/"
+	for f in $(NATIVE_FILES) $(NATIVE_FILES_DYNLINK); do if [ -f "$$f" ]; then $(CP) $$f "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/bytes/"; fi; done
 
 uninstall: 
 	rm -rf "$(DESTDIR)$(prefix)$(OCAML_SITELIB)/bytes"

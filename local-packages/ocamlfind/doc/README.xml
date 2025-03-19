@@ -110,6 +110,35 @@ configuration files, and library routines in detail.</p>
     <ul>
 
       <li>
+        <p><em>1.9.8:</em>: A few build-related fixes.</p>
+      </li>
+      
+      <li>
+        <p><em>1.9.7:</em>: Allow overriding low-level module loader
+        in `Fl_dynload.load_packages`. This is very useful in JSOO
+        where we may want to implement a `.cma` -> `.js` cache instead
+        of calling `Dynlink.loadfile` dynamically. (Emilio J. Gallego
+        Arias).</p>
+        <p>Fix auto-detection of -opaque (Stephen Dolan)</p>
+        <p>Fix linking of threads.cmxa in OCaml-5.2 (David Allsopp)</p>
+        <p>Improved scripts (shellcheck) (Marek Kubica)</p>
+        <p>Support for relocatable installations (Marek Kubica)</p>
+        <p>Support OCAMLOPT_SHARED (Chen Qi)</p>
+        <p>Avoid exception for PATH containing "." (Dmetry Bely)</p>
+        <p>Fixes for Windows (David Allsopp)</p>
+        <p>Typos in documentation (Antonin Décimo)</p>
+        <p>Upgrade ocamlfind for OCaml-5 (David Allsopp)</p>
+      </li>
+
+      <li>
+        <p><em>1.9.6:</em>: Support for OCaml-5 (as far as foreseeable)
+        (David Allsopp).</p>
+        <p>Again buildable since OCaml-3.08 (David Allsopp).</p>
+        <p>Fix an install problem when building with a system-provided
+          OCaml compiler (Louis Gesbert).</p>
+      </li>
+
+      <li>
         <p><em>1.9.5:</em>: fixes a bug in the scripting that
         slipped into 1.9.4</p>
       </li>
@@ -240,7 +269,7 @@ has an argument (reported by Guillaume Bury)</p>
     </li>
 
     <li>
-      <p><em>1.5.5:</em> fixes a build problem for BSD systens</p>
+      <p><em>1.5.5:</em> fixes a build problem for BSD systems</p>
     </li>
 
     <li>
@@ -500,7 +529,7 @@ the library would not work, and to generate error messages.</p>
 packages.</p>
 
 	<p>The set of predicates is extended by "package predicates"
-after the dependency analysis, making conditions expressable that
+after the dependency analysis, making conditions expressible that
 depend on whether other packages are selected.</p>
 
 	<p>The "+=" operator in META files adds words to variables rather
