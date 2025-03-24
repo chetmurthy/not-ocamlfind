@@ -109,7 +109,7 @@ topfind.ml: topfind.ml.in
 
 topfind.compat.in: topfind.in
 	if [ "$(OCAML_REMOVE_DIRECTORY)" = "1" ]; then                        \
-		cp $< $@;                                                     \
+		cp topfind.in topfind.compat.in;                                                     \
 	else                                                                  \
 		sed -e '/REMOVE_DIRECTORY_BEGIN/,/REMOVE_DIRECTORY_END/ d' $< \
 			> $@ ;                                                \
